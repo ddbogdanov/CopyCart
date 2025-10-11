@@ -49,7 +49,7 @@
     "productName": "Copy Cart",
     "icon": "build/icon",
     "win": {
-      "target": "nsis",
+      "target": ["nsis", "squirrel"],
       "icon": "build/icons/icon.ico"
     },
     "nsis": {
@@ -57,13 +57,13 @@
       "perMachine": true,
       "allowElevation": true,
       "allowToChangeInstallationDirectory": true
-    }
-  },
-  "publish": [
+    },
+	"publish": [
 	{
 	  "provider": "github",
 	  "owner": "ddbogdanov",
 	  "repo": "CopyCart"
 	}
 ]
+  }
 }
