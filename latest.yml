@@ -1,0 +1,6 @@
+version: 1.0.4
+files:
+  - url: CopyCartInstaller.exe
+    sha512: 1ciEyjsO3Z0Cm6ugKBo8P2iH49PgFzGX8jRxwe/iRaYxNMvmP3DwITNyYX7v/64gXvFVLd6dp29Jng7zKEeT8w==
+path: CopyCartInstaller.exe
+releaseDate: '2025-10-11T19:30:00.000Z'
