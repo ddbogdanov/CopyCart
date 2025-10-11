@@ -36,10 +36,6 @@ let settings: Record<string, any>
 //   })
 // })
 
-updateElectronApp({
-  repo: 'ddbogdanov/CopyCart'
-});
-
 app.setName('Copy Cart')
 app.whenReady().then(() => {
 	settings = ioService.loadSettings()
@@ -56,7 +52,7 @@ app.whenReady().then(() => {
 
 app.on('ready', () => {
 	console.log("Checking for updates... ")
-
+	updateElectronApp()
 })
 app.on('window-all-closed', () => {
 	if (process.platform !== 'darwin') app.quit()
