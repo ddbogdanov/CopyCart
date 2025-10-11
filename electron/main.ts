@@ -22,7 +22,9 @@ autoUpdater.on('update-available', (info) => {
     	buttons: ['Yes', 'Later'],
   	}).then((result) => {
     	if (result.response === 0) autoUpdater.downloadUpdate();
-  	});
+  	}, (error) => {
+		console.error('AutoUpdater error:', error)
+	});
 })
 autoUpdater.on('update-downloaded', () => {
   dialog.showMessageBox({
@@ -31,12 +33,14 @@ autoUpdater.on('update-downloaded', () => {
     message: 'Update downloaded. Restart to install?',
     buttons: ['Restart', 'Later'],
   }).then((result) => {
-    if (result.response === 0) autoUpdater.quitAndInstall();
-  });
-});
-autoUpdater.on('error', (err) => {
-  console.error('AutoUpdater error:', err);
-});
+	    if (result.response === 0) autoUpdater.quitAndInstall();
+  }, (error) => {
+	console.error('AutoUpdater error:', error)
+  })
+})
+autoUpdater.on('error', (error) => {
+  console.error('AutoUpdater error:', error)
+})
 
 app.setName('Copy Cart')
 app.whenReady().then(() => {
@@ -53,6 +57,7 @@ app.whenReady().then(() => {
 })
 
 app.on('ready', () => {
+	console.log("Checking for updates... ")
 	autoUpdater.checkForUpdatesAndNotify()
 })
 app.on('window-all-closed', () => {
