@@ -11,31 +11,6 @@ const ioService = new IoService()
 let mainWindow: BrowserWindow
 let settings: Record<string, any>
 
-// autoUpdater.on('update-available', (info) => {
-// 	dialog.showMessageBox({
-//     	type: 'info',
-//     	title: 'Update available',
-//     	message: `Version ${info.version} is available. Download now?`,
-//     	buttons: ['Yes', 'Later'],
-//   	}).then((result) => {
-//     	if (result.response === 0) autoUpdater.downloadUpdate();
-//   	}, (error) => {
-// 		console.error('AutoUpdater error:', error)
-// 	});
-// })
-// autoUpdater.on('update-downloaded', () => {
-//   dialog.showMessageBox({
-//     type: 'info',
-//     title: 'Update ready',
-//     message: 'Update downloaded. Restart to install?',
-//     buttons: ['Restart', 'Later'],
-//   }).then((result) => {
-// 	    if (result.response === 0) autoUpdater.quitAndInstall();
-//   }, (error) => {
-// 	console.error('AutoUpdater error:', error)
-//   })
-// })
-
 app.setName('Copy Cart')
 app.whenReady().then(() => {
 	settings = ioService.loadSettings()
@@ -51,8 +26,9 @@ app.whenReady().then(() => {
 })
 
 app.on('ready', () => {
-	console.log("Checking for updates... ")
-	updateElectronApp()
+	updateElectronApp({
+		notifyUser: true
+	})
 })
 app.on('window-all-closed', () => {
 	if (process.platform !== 'darwin') app.quit()
