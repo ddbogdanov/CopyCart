@@ -2,45 +2,43 @@ import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { IoService } from './services/IoService.ts'
-import updater from 'electron-updater'
-import path from "path";
+import path from "path"
+import { updateElectronApp } from 'update-electron-app'
 
-const { autoUpdater } = updater
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 const ioService = new IoService()
 let mainWindow: BrowserWindow
 let settings: Record<string, any>
 
-autoUpdater.autoDownload = false;
+// autoUpdater.on('update-available', (info) => {
+// 	dialog.showMessageBox({
+//     	type: 'info',
+//     	title: 'Update available',
+//     	message: `Version ${info.version} is available. Download now?`,
+//     	buttons: ['Yes', 'Later'],
+//   	}).then((result) => {
+//     	if (result.response === 0) autoUpdater.downloadUpdate();
+//   	}, (error) => {
+// 		console.error('AutoUpdater error:', error)
+// 	});
+// })
+// autoUpdater.on('update-downloaded', () => {
+//   dialog.showMessageBox({
+//     type: 'info',
+//     title: 'Update ready',
+//     message: 'Update downloaded. Restart to install?',
+//     buttons: ['Restart', 'Later'],
+//   }).then((result) => {
+// 	    if (result.response === 0) autoUpdater.quitAndInstall();
+//   }, (error) => {
+// 	console.error('AutoUpdater error:', error)
+//   })
+// })
 
-autoUpdater.on('update-available', (info) => {
-	dialog.showMessageBox({
-    	type: 'info',
-    	title: 'Update available',
-    	message: `Version ${info.version} is available. Download now?`,
-    	buttons: ['Yes', 'Later'],
-  	}).then((result) => {
-    	if (result.response === 0) autoUpdater.downloadUpdate();
-  	}, (error) => {
-		console.error('AutoUpdater error:', error)
-	});
-})
-autoUpdater.on('update-downloaded', () => {
-  dialog.showMessageBox({
-    type: 'info',
-    title: 'Update ready',
-    message: 'Update downloaded. Restart to install?',
-    buttons: ['Restart', 'Later'],
-  }).then((result) => {
-	    if (result.response === 0) autoUpdater.quitAndInstall();
-  }, (error) => {
-	console.error('AutoUpdater error:', error)
-  })
-})
-autoUpdater.on('error', (error) => {
-  console.error('AutoUpdater error:', error)
-})
+updateElectronApp({
+  repo: 'ddbogdanov/CopyCart'
+});
 
 app.setName('Copy Cart')
 app.whenReady().then(() => {
@@ -58,7 +56,7 @@ app.whenReady().then(() => {
 
 app.on('ready', () => {
 	console.log("Checking for updates... ")
-	autoUpdater.checkForUpdatesAndNotify()
+
 })
 app.on('window-all-closed', () => {
 	if (process.platform !== 'darwin') app.quit()
@@ -78,7 +76,7 @@ ipcMain.handle("open-file-dialog", async (event, title, properties, filters) => 
   }
 
   if(title === 'Import Orders') {
-	ioService.cacheFile(filePaths[0]).then(() => {
+	ioService.cacheFile(filePaths[0]).then((isCached) => {
 		if(isCached) {
 			mainWindow.webContents.send('update:loading:state', {'isLoading': false, 'progress': 0, 'status': 'Idle'})
 			mainWindow.webContents.send('caching:update', {'isSelected': true, 'path': filePaths[0]})
