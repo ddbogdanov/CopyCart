@@ -72,4 +72,8 @@ const props = defineProps(['currentFile', 'isLoading', 'progress', 'status'])
 			animation-delay: 1.6s;
 		}
 	}
+
+	::v-deep(.p-progressbar-value) {
+ 		transition: width 0.1s linear !important;
+	}
 </style>

@@ -2,7 +2,8 @@
 	<div class="file-drop">
 		<div class="header">
 			<h2>{{ props.title }}</h2>
-			<i id="help" class="pi pi-info-circle" v-tooltip="props.tooltip"/>
+			<i id="help" class="pi pi-info-circle" v-tooltip="props.tooltip"
+			/>
 		</div>
 
 		<div class="select">
@@ -79,9 +80,6 @@ function cancelFile() {
 		display: flex;
 		flex-direction: column;
 		justify-content: space-between;
-
-		border: 1px solid var(--p-primary-color);
-		border-radius: 15px;
 
 		padding: 10px;
 

@@ -8,6 +8,7 @@
 					:dialog-properties="Array.of('openFile')"
 					:dialog-filters="Array.of({ 'name': 'Orders', 'extensions': ['json', 'csv'] }, { 'name': 'All Files', 'extensions': ['*'] })"
 					button-label="Select File"
+					class="component-border--primary"
 			/>
 
 			<FileDrop title="Print Files"
@@ -17,6 +18,7 @@
 					:dialog-properties="Array.of('openDirectory')"
 					:dialog-filters="Array.of([])"
 					button-label="Select Folder"
+					class="component-border--primary"
 			/>
 		</div>
 
@@ -45,6 +47,7 @@
 					:dialog-properties="Array.of('openDirectory')"
 					:dialog-filters="Array.of([])"
 					button-label="Select Folder"
+					class="component-border--primary"
 			/>
 		</div>
 	</div>
@@ -76,8 +79,6 @@ const toast = useToast();
 const version = ref(__APP_VERSION__)
 
 onMounted(() => {
-	console.log("Version: " + version)
-
 	window.electronAPI.onCachingUpdate((isSelected, path) => {
 		areImportsCached.value = isSelected
 		ordersPath.value = path
@@ -98,7 +99,7 @@ onMounted(() => {
 	})
 	window.electronAPI.onLoadingStateUpdate((isLoading, p, s) => {
 		isProcessing.value = isLoading
-		progress.value = p
+		progress.value = Math.round(p)
 		status.value = s
 	})
 	window.electronAPI.onToast((message) => {
@@ -170,5 +171,10 @@ onMounted(() => {
 
 		border: 1px dashed var(--p-surface-500);
 		border-radius: 5px;
+	}
+
+	.component-border--primary {
+		border-radius: 15px;
+		box-shadow: 0 0 0 1px var(--p-primary-500);
 	}
 </style>
