@@ -38,7 +38,7 @@ export class IoService {
 	}
 
 	deleteCache(): boolean {
-		this.importCache = new Array
+		this.importCache = new Array()
 		return true;
 	}
 	deletePrintFiles(): boolean {
@@ -85,35 +85,51 @@ export class IoService {
 		return {}
 	}
 
-	async cacheFile(filePath: string): Promise<boolean> { // TODO: Loading state/popup for loading each file/directory after select
+	async cacheFile(filePath: string): Promise<boolean> {
 		const ext = path.extname(filePath).toLowerCase()
 
-		if(ext === '.json') {
+		if (ext === '.json') {
 			const data = fs.readFileSync(filePath, 'utf-8')
 			this.importCache = JSON.parse(data)
-
 			return true
 		}
-		else if(ext === '.csv') {
-			let i = await this.parseCSV(filePath)
-			
+
+		if (ext === '.csv') {
+			const rows = await this.parseCSV(filePath)
+
 			this.importCache = []
-			for(let order of i) {
-				let o = {
-					'name': order['Name'].replace('#', ''),
-					'sku': order['Lineitem sku'].toLowerCase(),
-					'quantity': order['Lineitem quantity']
+			const lastBillingByOrder = new Map<string, string>()
+
+			for (const row of rows) {
+				const name = row['Name']?.replace('#', '')
+				const sku = row['Lineitem sku']?.toLowerCase()
+				const quantity = row['Lineitem quantity']
+				const billingName = row['Billing Name']?.trim()
+
+				if (!name) continue
+
+				let resolvedBilling = billingName
+				if (billingName) {
+					lastBillingByOrder.set(name, billingName)
+				} else if (lastBillingByOrder.has(name)) {
+					resolvedBilling = lastBillingByOrder.get(name)!
 				}
-				this.importCache.push(o)
+
+				this.importCache.push({
+					name: name,
+					sku,
+					quantity,
+					billingName: resolvedBilling ?? ''
+				})
 			}
-			
 		}
+
 		else {
 			throw new Error("Unsupported file type. Only .json or .csv allowed.");
 		}
 
-		console.log(`${this.importCache.length} order inputs cached from ${filePath}`)
-		return true
+		console.log(`${this.importCache.length} order inputs cached from ${filePath}`);
+		return true;
 	}
 	async processFiles(): Promise<boolean> {
 		await fs.promises.mkdir(this.printFolder, { recursive: true })
@@ -123,6 +139,7 @@ export class IoService {
       		throw new Error('File or Import cache is empty — did you load orders and print files first?');
     	}
 
+		const sanitizePath = str => str.replace(/[<>:"/\\|?*]+/g, '_')
 		const totalOrders = this.importCache.length
 
 		for(let [index, order] of this.importCache.entries()) {
@@ -135,7 +152,7 @@ export class IoService {
 			let destPath = ''
 
 			for(let i = 0; i < order.quantity; i++) {
-				const destPath = path.join(this.printFolder, `order-${orderName}-${order.sku}-${index}-${i}${ext}`)
+				const destPath = path.join(this.printFolder, sanitizePath(`${orderName}-${order.billingName}-${order.sku}-${i}-${index}${ext}`))
 
 				console.log(`Copying: ${matchedOrder} --to--> ${destPath}`)
 				copyPromises.push(fs.promises.copyFile(matchedOrder, destPath))
