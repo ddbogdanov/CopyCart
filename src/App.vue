@@ -1,5 +1,53 @@
 <template>
+	<div class="main-container">
+		<div class="input-container">
+			<FileDrop title="Import Orders"
+					icon="pi pi-file-import" 
+					tooltip="Accepts .CSV files containing order info."
+					dialog-title="Import Orders" 
+					:dialog-properties="Array.of('openFile')"
+					:dialog-filters="Array.of({ 'name': 'Orders', 'extensions': ['json', 'csv'] }, { 'name': 'All Files', 'extensions': ['*'] })"
+					button-label="Select File"
+			/>
 
+			<FileDrop title="Print Files"
+					icon="pi pi-folder-open"
+					tooltip="Directory containing print files. These will be copied."
+					dialog-title="Select Print Files" 
+					:dialog-properties="Array.of('openDirectory')"
+					:dialog-filters="Array.of([])"
+					button-label="Select Folder"
+			/>
+		</div>
+
+		<div class="info-container">
+			<Progress current-file="CurrentFile/OrderNumber.txt"
+					:progress="progress"	
+					:is-loading="isProcessing"
+					:status="status"
+			/>
+
+			<CheckList :are-imports-cached="areImportsCached" 
+					:are-print-files-selected="arePrintFilesSelected" 
+					:is-print-folder-selected="isPrintFolderSelected"
+					:print-files-path="printFilesPath"
+					:print-folder-path="printFolderPath"
+			/>
+
+			<ProcessFiles :is-disabled="!(areImportsCached && isPrintFolderSelected && arePrintFilesSelected)" />
+		</div>
+
+		<div class="output-container">
+			<FileDrop title="Print Folder"
+					icon="pi pi-briefcase"
+					tooltip="Destination directory to copy files into."
+					dialog-title="Select Print Folder" 
+					:dialog-properties="Array.of('openDirectory')"
+					:dialog-filters="Array.of([])"
+					button-label="Select Folder"
+			/>
+		</div>
+	</div>
 
 	<span id="footer">v{{ version }}</span>
 
