@@ -52,7 +52,7 @@
 		</div>
 	</div>
 
-	<span id="footer">v{{ version }}</span>
+	<span id="app-version">v{{ version }}</span>
 
 	<Toast group="error"/>
 </template>
@@ -115,10 +115,10 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
-	#footer {
+	#app-version {
 		position: fixed;
 		top: 4px;             
-		right: 28px;              
+		right: 24px;              
 		opacity: 0.6;
 		pointer-events: none;
 		user-select: none;    
@@ -174,7 +174,7 @@ onMounted(() => {
 	}
 
 	.component-border--primary {
-		border-radius: 15px;
+		border-radius: 10px;
 		box-shadow: 0 0 0 1px var(--p-primary-500);
 	}
 </style>

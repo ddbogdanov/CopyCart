@@ -1,9 +1,7 @@
 <template>
 	<div class="file-drop">
 		<div class="header">
-			<h2>{{ props.title }}</h2>
-			<i id="help" class="pi pi-info-circle" v-tooltip="props.tooltip"
-			/>
+			<h2 v-tooltip="props.tooltip">{{ props.title }}</h2>
 		</div>
 
 		<div class="select">
@@ -53,18 +51,17 @@ function cancelFile() {
 
 <style lang="scss" scoped>
 	.header {
-		flex-grow: 1;
 		display: flex;
 		justify-content: center;
-		align-items: center;
-		gap: 10px;
+		position: relative;
 
-		#help {
-			color: var(--p-surface-500)
-		}
+		height: 42px;
 
 		h2 {
 			margin: 0;
+
+			font-weight: 300;
+
 			color: var(--p-text-color)
 		}
 	}
@@ -72,7 +69,7 @@ function cancelFile() {
 	.select {
 		display: flex;
 		flex-direction: column;
-		justify-content: center;;
+		justify-content: center;
 		flex-grow: 10;
 	}
 
@@ -81,9 +78,11 @@ function cancelFile() {
 		flex-direction: column;
 		justify-content: space-between;
 
-		padding: 10px;
-
 		flex-grow: 1;
+
+		> * {
+			padding: 10px;
+		}
 	}
 
 	.file-name {
