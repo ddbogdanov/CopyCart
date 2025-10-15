@@ -22,7 +22,8 @@ function processFiles() {
 		rejectClass: 'p-button-secondary p-button-outlined',
 		accept: onAccept,
 		reject: onReject,
-		acceptIcon: 'pi pi-arrow-right'
+		acceptIcon: 'pi pi-arrow-right',
+		rejectIcon: 'pi pi-times'
 	})
 }
 
