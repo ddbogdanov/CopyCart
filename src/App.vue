@@ -1,53 +1,57 @@
 <template>
-	<div class="main-container">
-		<div class="input-container">
-			<FileDrop title="Import Orders"
-					icon="pi pi-file-import" 
-					tooltip="Accepts .CSV files containing order info."
-					dialog-title="Import Orders" 
-					:dialog-properties="Array.of('openFile')"
-					:dialog-filters="Array.of({ 'name': 'Orders', 'extensions': ['json', 'csv'] }, { 'name': 'All Files', 'extensions': ['*'] })"
-					button-label="Select File"
-			/>
+	<main>
+		<div class="main-container">
+			<div class="input-container">
+				<FileDrop title="Import Orders"
+						icon="pi pi-file-import" 
+						tooltip="Accepts .CSV files containing order info."
+						dialog-title="Import Orders" 
+						:dialog-properties="Array.of('openFile')"
+						:dialog-filters="Array.of({ 'name': 'Orders', 'extensions': ['json', 'csv'] }, { 'name': 'All Files', 'extensions': ['*'] })"
+						button-label="Select File"
+				/>
 
-			<FileDrop title="Print Files"
-					icon="pi pi-folder-open"
-					tooltip="Directory containing print files. These will be copied."
-					dialog-title="Select Print Files" 
-					:dialog-properties="Array.of('openDirectory')"
-					:dialog-filters="Array.of([])"
-					button-label="Select Folder"
-			/>
+				<FileDrop title="Print Files"
+						icon="pi pi-folder-open"
+						tooltip="Directory containing print files. These will be copied."
+						dialog-title="Select Print Files" 
+						:dialog-properties="Array.of('openDirectory')"
+						:dialog-filters="Array.of([])"
+						button-label="Select Folder"
+				/>
+			</div>
+
+			<div class="info-container">
+				<Progress current-file="CurrentFile/OrderNumber.txt"
+						:progress="progress"
+						:is-loading="isProcessing"
+						:status="status"
+				/>
+
+				<CheckList :are-imports-cached="areImportsCached" 
+						:are-print-files-selected="arePrintFilesSelected" 
+						:is-print-folder-selected="isPrintFolderSelected"
+						:print-files-path="printFilesPath"
+						:print-folder-path="printFolderPath"
+				/>
+
+				<ProcessFiles :is-disabled="!(areImportsCached && isPrintFolderSelected && arePrintFilesSelected)" />
+			</div>
+
+			<div class="output-container">
+				<FileDrop title="Print Folder"
+						icon="pi pi-briefcase"
+						tooltip="Destination directory to copy files into."
+						dialog-title="Select Print Folder" 
+						:dialog-properties="Array.of('openDirectory')"
+						:dialog-filters="Array.of([])"
+						button-label="Select Folder"
+				/>
+			</div>
 		</div>
+	</main>
 
-		<div class="info-container">
-			<Progress current-file="CurrentFile/OrderNumber.txt"
-				    :progress="progress"
-					:is-loading="isProcessing"
-					:status="status"
-			/>
-
-			<CheckList :are-imports-cached="areImportsCached" 
-					:are-print-files-selected="arePrintFilesSelected" 
-					:is-print-folder-selected="isPrintFolderSelected"
-					:print-files-path="printFilesPath"
-					:print-folder-path="printFolderPath"
-			/>
-
-			<ProcessFiles :is-disabled="!(areImportsCached && isPrintFolderSelected && arePrintFilesSelected)" />
-		</div>
-
-		<div class="output-container">
-			<FileDrop title="Print Folder"
-					  icon="pi pi-briefcase"
-					  tooltip="Destination directory to copy files into."
-					  dialog-title="Select Print Folder" 
-					  :dialog-properties="Array.of('openDirectory')"
-					  :dialog-filters="Array.of([])"
-					  button-label="Select Folder"
-			/>
-		</div>
-	</div>
+	<footer>v{{ version }}</footer>
 
 	<Toast group="error"/>
 </template>
@@ -60,6 +64,7 @@ import Progress from './components/Progress.vue'
 import CheckList from './components/CheckList.vue'
 import Toast from 'primevue/toast'
 import { useToast } from 'primevue/usetoast';
+import pkg from '../package.json'
 
 const areImportsCached = ref(false)
 const ordersPath = ref('')
@@ -71,6 +76,7 @@ const isProcessing = ref(false)
 const progress = ref(0)
 const status = ref('Select a file to import')
 const toast = useToast();
+const version = pkg.version
 
 onMounted(() => {
 	window.electronAPI.onCachingUpdate((isSelected, path) => {
@@ -108,7 +114,28 @@ onMounted(() => {
 
 </script>
 
-<style scoped>
+<style scoped lang="scss">
+	main {
+		width: 100%;
+		height: 100%;
+
+		display: flex;
+		flex-direction: row;
+		justify-content: space-between;
+		align-items: center;
+	}
+	footer {
+		position: fixed;
+		top: 4px;             
+		right: 28px;              
+		opacity: 0.6;
+		pointer-events: none;
+		user-select: none;    
+		z-index: 9999;
+
+		font-size: 8px;
+	}
+
 	.main-container {
 		width: 100%;
 		height: 100%;
