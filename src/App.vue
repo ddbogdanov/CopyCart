@@ -64,7 +64,6 @@ import Progress from './components/Progress.vue'
 import CheckList from './components/CheckList.vue'
 import Toast from 'primevue/toast'
 import { useToast } from 'primevue/usetoast';
-import pkg from '../package.json'
 
 const areImportsCached = ref(false)
 const ordersPath = ref('')
@@ -76,7 +75,7 @@ const isProcessing = ref(false)
 const progress = ref(0)
 const status = ref('Select a file to import')
 const toast = useToast();
-const version = pkg.version
+const version = __APP_VERSION__
 
 onMounted(() => {
 	window.electronAPI.onCachingUpdate((isSelected, path) => {
