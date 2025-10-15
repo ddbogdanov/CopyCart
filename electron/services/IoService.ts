@@ -139,7 +139,7 @@ export class IoService {
       		throw new Error('File or Import cache is empty — did you load orders and print files first?');
     	}
 
-		const sanitizePath = str => str.replace(/[<>:"/\\|?*]+/g, '_')
+		const sanitizePath = (str: string) => str.replace(/[<>:"/\\|?*]+/g, '_')
 		const totalOrders = this.importCache.length
 
 		for(let [index, order] of this.importCache.entries()) {

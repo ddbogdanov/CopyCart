@@ -1,62 +1,9 @@
 <template>
-	<!-- Can't have multiple root level elements in one component. Need to seperate below into components -->
-	<div id="app-root">
-		<main>
-			<div class="main-container">
-				<div class="input-container">
-					<FileDrop title="Import Orders"
-							icon="pi pi-file-import" 
-							tooltip="Accepts .CSV files containing order info."
-							dialog-title="Import Orders" 
-							:dialog-properties="Array.of('openFile')"
-							:dialog-filters="Array.of({ 'name': 'Orders', 'extensions': ['json', 'csv'] }, { 'name': 'All Files', 'extensions': ['*'] })"
-							button-label="Select File"
-					/>
 
-					<FileDrop title="Print Files"
-							icon="pi pi-folder-open"
-							tooltip="Directory containing print files. These will be copied."
-							dialog-title="Select Print Files" 
-							:dialog-properties="Array.of('openDirectory')"
-							:dialog-filters="Array.of([])"
-							button-label="Select Folder"
-					/>
-				</div>
 
-				<div class="info-container">
-					<Progress current-file="CurrentFile/OrderNumber.txt"
-							:progress="progress"
-							:is-loading="isProcessing"
-							:status="status"
-					/>
+	<span id="footer">v{{ version }}</span>
 
-					<CheckList :are-imports-cached="areImportsCached" 
-							:are-print-files-selected="arePrintFilesSelected" 
-							:is-print-folder-selected="isPrintFolderSelected"
-							:print-files-path="printFilesPath"
-							:print-folder-path="printFolderPath"
-					/>
-
-					<ProcessFiles :is-disabled="!(areImportsCached && isPrintFolderSelected && arePrintFilesSelected)" />
-				</div>
-
-				<div class="output-container">
-					<FileDrop title="Print Folder"
-							icon="pi pi-briefcase"
-							tooltip="Destination directory to copy files into."
-							dialog-title="Select Print Folder" 
-							:dialog-properties="Array.of('openDirectory')"
-							:dialog-filters="Array.of([])"
-							button-label="Select Folder"
-					/>
-				</div>
-			</div>
-		</main>
-
-		<footer>v{{ version }}</footer>
-
-		<Toast group="error"/>
-	</div>
+	<Toast group="error"/>
 </template>
 
 <script setup lang="ts">
@@ -78,9 +25,11 @@ const isProcessing = ref(false)
 const progress = ref(0)
 const status = ref('Select a file to import')
 const toast = useToast();
-const version = __APP_VERSION__
+const version = ref(__APP_VERSION__)
 
 onMounted(() => {
+	console.log("Version: " + version)
+
 	window.electronAPI.onCachingUpdate((isSelected, path) => {
 		areImportsCached.value = isSelected
 		ordersPath.value = path
@@ -117,20 +66,7 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
-	#app-root {
-		width: 100%;
-		height: 100%;
-	}
-	main {
-		width: 100%;
-		height: 100%;
-
-		display: flex;
-		flex-direction: row;
-		justify-content: space-between;
-		align-items: center;
-	}
-	footer {
+	#footer {
 		position: fixed;
 		top: 4px;             
 		right: 28px;              

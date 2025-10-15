@@ -35,7 +35,8 @@ app.directive('tooltip', Tooltip);
 
 app.mount('#app')
 
-// BUILD/MAKE COMMAND: npx electron-forge make --platform win32 --arch x64
+// FIRST: npm run build
+// THEN: Build/Make Command: npx electron-forge make --platform win32 --arch x64
 // ^ to publish add --publish always
 //
 // SHA Hash for latest.yml:    node -e "console.log(require('crypto').createHash('sha512').update(require('fs').readFileSync('CopyCartInstaller.exe')).digest('base64'))"
