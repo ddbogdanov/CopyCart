@@ -7,7 +7,7 @@ import path from "path";
 export class IoService {
 	private importCache: Array<any> = new Array()
 	private fileCache: Map<string, string> = new Map()
-	settings: object = {
+	settings: any = {
 		shouldSave: {
 			imports: false,
 			printFiles: true,
@@ -126,8 +126,8 @@ export class IoService {
 			const data = fs.readFileSync(filePath, 'utf-8')
 			this.importCache = JSON.parse(data)
 
-			this.mainWindow.webContents.send('update:loading:state', {'isLoading': false, 'progress': 0, 'status': 'Idle'})
-			this.mainWindow.webContents.send('settings:update', this.settings)
+			this.mainWindow?.webContents.send('update:loading:state', {'isLoading': false, 'progress': 0, 'status': 'Idle'})
+			this.mainWindow?.webContents.send('settings:update', this.settings)
 			return true
 		}
 		else if (ext === '.csv') {
@@ -161,15 +161,15 @@ export class IoService {
 		}
 		else {
 			console.log("Unsupported file type. Only .json or .csv allowed.")
-			this.mainWindow.webContents.send('settings:update', this.settings)
-			this.mainWindow.webContents.send('toast', 'Error loading input file. Check that the .CSV has fields for <Name>, <Lineitem sku>, and <quantity>')
+			this.mainWindow?.webContents.send('settings:update', this.settings)
+			this.mainWindow?.webContents.send('toast', 'Error loading input file. Check that the .CSV has fields for <Name>, <Lineitem sku>, and <quantity>')
 
 			return false;
 		}
 
 		console.log(`${this.importCache.length} order imports cached from ${filePath}`);
-		this.mainWindow.webContents.send('update:loading:state', {'isLoading': false, 'progress': 0, 'status': 'Idle'})
-		this.mainWindow.webContents.send('settings:update', this.settings)
+		this.mainWindow?.webContents.send('update:loading:state', {'isLoading': false, 'progress': 0, 'status': 'Idle'})
+		this.mainWindow?.webContents.send('settings:update', this.settings)
 		
 		return true;
 	}
@@ -178,7 +178,7 @@ export class IoService {
 		await this.cachePrintFiles()
 
 		if (!this.importCache.length || !this.fileCache) {
-			this.mainWindow.webContents.send('toast', 'File or Import cache is empty — did you load orders and print files first? Is your import file in a correct format?')
+			this.mainWindow?.webContents.send('toast', 'File or Import cache is empty — did you load orders and print files first? Is your import file in a correct format?')
 			return false
     	}
 

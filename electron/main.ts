@@ -26,7 +26,7 @@ app.on('window-all-closed', () => {
 })
 app.on('before-quit', () => {
   if (mainWindow) {
-    if (ioService.saveSettings(null, true)) console.log('Settings saved on quit')
+    if (ioService.saveSettings(undefined, true)) console.log('Settings saved on quit')
   }
 })
 
