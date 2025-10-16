@@ -13,6 +13,10 @@ import Tooltip from 'primevue/tooltip'
 import ConfirmPopup from 'primevue/confirmpopup'
 import ConfirmationService from 'primevue/confirmationservice'
 import ToastService from 'primevue/toastservice'
+import ButtonGroup from 'primevue/buttongroup'
+import Drawer from 'primevue/drawer'
+import Checkbox from 'primevue/checkbox'
+import Fieldset from 'primevue/fieldset'
 
 const app = createApp(App)
 
@@ -30,8 +34,12 @@ app.use(ToastService)
 app.component('Button', Button)
 app.component('ProgressBar', ProgressBar)
 app.component('ConfirmPopup', ConfirmPopup)
+app.component('ButtonGroup', ButtonGroup)
+app.component('Drawer', Drawer)
+app.component('Checkbox', Checkbox)
+app.component('Fieldset', Fieldset)
 
-app.directive('tooltip', Tooltip);
+app.directive('tooltip', Tooltip)
 
 app.mount('#app')
 

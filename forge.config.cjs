@@ -27,7 +27,7 @@ module.exports = {
         exe: "CopyCart.exe",
         setupExe: "CopyCartInstaller.exe",
         setupIcon: "build/icons/icon.ico",
-        description: "Copy files based on order inputs",
+        description: "Copy files based on order imports",
         noMsi: true,
       },
 	},

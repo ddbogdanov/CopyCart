@@ -4,12 +4,16 @@ export interface ElectronAPI {
   deletePrintFiles: () => void
   deletePrintFolder: () => void
   processFiles: () => void
+  minimize: () => void
+  toggleMaximize: () => void
+  exit: () => void
+  saveSettings: (settings: any) => Promise<boolean>
 
   onLoadingStateUpdate: (callback: (isLoading: boolean, progress: number, status: string) => void) => void
-  onCachingUpdate: (callback: (isSelected: boolean, path: string) => void) => void
-  onPrintFilesUpdate: (callback: (isSelected: boolean, path: string) => void) => void
-  onPrintFolderUpdate: (callback: (isSelected: boolean, path: string) => void) => void
   onToast: (callback: (message: string) => void) => void
+  onWindowMaximizeUpdate: (callback: (maximized: boolean) => void) => void
+  onSettingsSaved: (callback: (saved: boolean) => void) => void
+  onSettingsUpdate: (callback: (settings: any) => void) => void
 
   updateLoadingState: (isLoading: boolean, progress: number, status: string) => void
 }
