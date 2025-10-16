@@ -7,8 +7,16 @@ import path from "path";
 export class IoService {
 	private importCache: Array<any> = new Array()
 	private fileCache: Map<string, string> = new Map()
-	printFiles: string = ''
-	printFolder: string = ''
+	settings: any = {
+		shouldSave: {
+			imports: false,
+			printFiles: true,
+			printFolder: true,
+		},
+		imports: '',
+		printFiles: '',
+		printFolder: '',
+	}
 	settingsPath: string = ''
 	mainWindow?: BrowserWindow
 
@@ -31,51 +39,76 @@ export class IoService {
  	}
 
 	setPrintFiles(printFiles: string) {
-		this.printFiles = printFiles
+		this.settings.printFiles = printFiles
+		this.mainWindow?.webContents.send('settings:update', this.settings)
 	}
 	setPrintFolder(printFolder: string) {
-		this.printFolder = printFolder
+		this.settings.printFolder = printFolder
+		this.mainWindow?.webContents.send('settings:update', this.settings)
 	}
 
 	deleteCache(): boolean {
 		this.importCache = new Array()
+		this.settings.imports = ''
+		this.mainWindow?.webContents.send('settings:update', this.settings)
+		this.mainWindow?.webContents.send('update:loading:state', {'isLoading': false, 'progress': 0, 'status': 'Select a file to import'})
 		return true;
 	}
 	deletePrintFiles(): boolean {
-		this.printFiles = ''
+		this.settings.printFiles = ''
+		this.mainWindow?.webContents.send('settings:update', this.settings)
+		this.mainWindow?.webContents.send('update:loading:state', {'isLoading': false, 'progress': 0, 'status': 'Select print files'})
 		return true;
 	}
 	deletePrintFolder(): boolean {
-		this.printFolder = ''
+		this.settings.printFolder = ''
+		this.mainWindow?.webContents.send('settings:update', this.settings)
+		this.mainWindow?.webContents.send('update:loading:state', {'isLoading': false, 'progress': 0, 'status': 'Select a print folder'})
 		return true;
 	}
 
-	saveSettings(): boolean {
-		let settings = {
-			'printFiles': this.printFiles,
-			'printFolder': this.printFolder
+	saveSettings(settings?: object, isClosing?: boolean): boolean {
+		if(isClosing) {
+			if(!this.settings.shouldSave.imports) this.settings.imports = ''
+			if(!this.settings.shouldSave.printFiles) this.settings.printFiles = ''
+			if(!this.settings.shouldSave.printFolder) this.settings.printFolder = ''
 		}
 
+		const settingsToSave = {...this.settings, ...settings}
+
 		try {
-			fs.writeFileSync(this.settingsPath, JSON.stringify(settings), 'utf-8')
+			console.log(`Saving settings to: ${this.settingsPath}`)
+			fs.writeFileSync(this.settingsPath, JSON.stringify(settingsToSave), 'utf-8')
+			if(!isClosing) this.mainWindow?.webContents.send('settings:saved', true)		
+			this.settings = settingsToSave
+
 			return true
 		} 
 		catch (error) {
 			console.error('Error saving settings:', error)
+			if(isClosing) this.mainWindow?.webContents.send('settings:saved', false)
 			return false
 		}
 	}
 	loadSettings(): Record<string, any> {
 		try {
 			if(fs.existsSync(this.settingsPath ?? '')) {
-				const settings = JSON.parse(fs.readFileSync(this.settingsPath, 'utf-8'))
+				const settingsToRead = JSON.parse(fs.readFileSync(this.settingsPath, 'utf-8'))
 
-				this.printFiles = settings.printFiles
-				this.printFolder = settings.printFolder
+				this.settings.shouldSave = settingsToRead.shouldSave
+				this.settings.imports = settingsToRead.imports
+				this.settings.printFiles = settingsToRead.printFiles
+				this.settings.printFolder = settingsToRead.printFolder
+
+				if(this.settings.imports) {
+					this.cacheFile(this.settings.imports)
+				}
+
+				this.mainWindow?.webContents.send('settings:update', this.settings)
 
 				console.log("Settings loaded from: " + this.settingsPath)
 
-				return settings
+				return this.settings
 			}
 		} 
 		catch (error) {
@@ -86,15 +119,18 @@ export class IoService {
 	}
 
 	async cacheFile(filePath: string): Promise<boolean> {
+		this.settings.imports = filePath
 		const ext = path.extname(filePath).toLowerCase()
 
 		if (ext === '.json') {
 			const data = fs.readFileSync(filePath, 'utf-8')
 			this.importCache = JSON.parse(data)
+
+			this.mainWindow?.webContents.send('update:loading:state', {'isLoading': false, 'progress': 0, 'status': 'Idle'})
+			this.mainWindow?.webContents.send('settings:update', this.settings)
 			return true
 		}
-
-		if (ext === '.csv') {
+		else if (ext === '.csv') {
 			const rows = await this.parseCSV(filePath)
 
 			this.importCache = []
@@ -123,20 +159,27 @@ export class IoService {
 				})
 			}
 		}
-
 		else {
-			throw new Error("Unsupported file type. Only .json or .csv allowed.");
+			console.log("Unsupported file type. Only .json or .csv allowed.")
+			this.mainWindow?.webContents.send('settings:update', this.settings)
+			this.mainWindow?.webContents.send('toast', 'Error loading input file. Check that the .CSV has fields for <Name>, <Lineitem sku>, and <quantity>')
+
+			return false;
 		}
 
-		console.log(`${this.importCache.length} order inputs cached from ${filePath}`);
+		console.log(`${this.importCache.length} order imports cached from ${filePath}`);
+		this.mainWindow?.webContents.send('update:loading:state', {'isLoading': false, 'progress': 0, 'status': 'Idle'})
+		this.mainWindow?.webContents.send('settings:update', this.settings)
+		
 		return true;
 	}
 	async processFiles(): Promise<boolean> {
-		await fs.promises.mkdir(this.printFolder, { recursive: true })
+		await fs.promises.mkdir(this.settings.printFolder, { recursive: true })
 		await this.cachePrintFiles()
 
 		if (!this.importCache.length || !this.fileCache) {
-      		throw new Error('File or Import cache is empty — did you load orders and print files first?');
+			this.mainWindow?.webContents.send('toast', 'File or Import cache is empty — did you load orders and print files first? Is your import file in a correct format?')
+			return false
     	}
 
 		const sanitizePath = (str: string) => str.replace(/[<>:"/\\|?*]+/g, '_')
@@ -152,7 +195,7 @@ export class IoService {
 			let destPath = ''
 
 			for(let i = 0; i < order.quantity; i++) {
-				const destPath = path.join(this.printFolder, sanitizePath(`${orderName}-${order.billingName}-${order.sku}-${i}-${index}${ext}`))
+				const destPath = path.join(this.settings.printFolder, sanitizePath(`${orderName}-${order.billingName}-${order.sku}-${i}-${index}${ext}`))
 
 				console.log(`Copying: ${matchedOrder} --to--> ${destPath}`)
 				copyPromises.push(fs.promises.copyFile(matchedOrder, destPath))
@@ -182,14 +225,14 @@ export class IoService {
   		});
 	}
 	private async cachePrintFiles() {
-		const files = await fs.promises.readdir(this.printFiles);
+		const files = await fs.promises.readdir(this.settings.printFiles);
 		this.fileCache.clear();
 
 		for (const file of files) {
 			const baseName = path.parse(file).name.toLowerCase();
-			this.fileCache.set(baseName, path.join(this.printFiles, file));
+			this.fileCache.set(baseName, path.join(this.settings.printFiles, file));
 		}
 
-		console.log(`Cached ${this.fileCache.size} files from ${this.printFiles}`);
+		console.log(`Cached ${this.fileCache.size} files from ${this.settings.printFiles}`);
   }
 }

@@ -6,12 +6,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deletePrintFiles: () => ipcRenderer.invoke('delete-print-files'),
   deletePrintFolder: () => ipcRenderer.invoke('delete-print-folder'),
   processFiles: () => ipcRenderer.invoke('process-files'),
+  minimize: () => ipcRenderer.invoke('minimize'),
+  toggleMaximize: () => ipcRenderer.invoke('toggle-maximize'),
+  exit: () => ipcRenderer.invoke('exit'),
+  saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings),
 
-  onCachingUpdate: (callback) => {
-	ipcRenderer.on('caching:update', (_event, update) => {
-		callback(update.isSelected, update.path)
-	})
-  },
   onPrintFilesUpdate: (callback) => {
 	ipcRenderer.on('print:files:update', (_event, update) => {
 		callback(update.isSelected, update.path)
@@ -30,6 +29,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onToast: (callback) => {
 	ipcRenderer.on('toast', (_event, message) => {
 		callback(message)
+	})
+  },
+  onWindowMaximizeUpdate: (callback) => {
+	ipcRenderer.on('window:maximize:update', (_event, maximized) => {
+		callback(maximized.maximized)
+	})
+  },
+  onSettingsSaved: (callback) => {
+	ipcRenderer.on('settings:saved', (saved) => {
+		callback(saved)
+	})
+  },
+  onSettingsUpdate: (callback) => {
+	ipcRenderer.on('settings:update', (_event, settings) => {
+		callback(settings)
 	})
   }
 });
