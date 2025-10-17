@@ -102,26 +102,26 @@ function handleSquirrelEvent() {
 	var squirrelCommand = process.argv[1];
 	switch (squirrelCommand) {
 		case '--squirrel-install':
-		console.log('Squirrel Event: Install');
-		app.quit();
-		return true;
+			console.log('Squirrel Event: Install');
+			app.quit();
+			return true;
 
 		case '--squirrel-updated':
-		console.log('Squirrel Event: Updated');
-		app.quit();
-		return true;
+			console.log('Squirrel Event: Updated');
+			app.quit();
+			return true;
 
 		case '--squirrel-uninstall':
-		console.log('Squirrel Event: Uninstall');
-		app.quit();
-		return true;
+			console.log('Squirrel Event: Uninstall');
+			app.quit();
+			return true;
 
 		case '--squirrel-obsolete':
-		console.log('Squirrel Event: Obsolete');
-		app.quit();
-		return true;
+			console.log('Squirrel Event: Obsolete');
+			app.quit();
+			return true;
 
 		default:
-		return false; // No Squirrel event detected
+			return false; // No Squirrel event detected
   	}
 }
