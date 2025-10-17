@@ -7,6 +7,7 @@ import { updateElectronApp } from 'update-electron-app'
 import { createRequire } from 'module'
 const require = createRequire(import.meta.url)
 
+// TODO: TEST THIS?? BUT HOW?!
 handleSquirrelEvent()
 
 const __filename = fileURLToPath(import.meta.url)
@@ -94,8 +95,6 @@ function createWindow() {
 }
 
 function handleSquirrelEvent() {
-	if(require('electron-squirrel-startup')) app.quit()
-	
 	if (process.platform !== 'win32') {
     	return false;
 	}
