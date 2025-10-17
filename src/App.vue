@@ -71,28 +71,30 @@
 
 			<Form @submit="onSaveSettings" :initialValues="settings" class="settings-form">
 
-				<Fieldset legend="Save on exit?" toggleable>
-					<div class="should-save">
+				<div class="settings-content">
+					<Fieldset legend="Save on exit?" toggleable>
+						<div class="should-save">
 
-						<div class="checkbox-item" v-for="(value, key) in settings.shouldSave" :key="key">
-							<Checkbox :name="key" :inputId="key" v-model="settings.shouldSave[key]" binary/>
-							<label :for="key">{{ formatLabel(key) }}?</label>
-						</div>	
+							<div class="checkbox-item" v-for="(value, key) in settings.shouldSave" :key="key">
+								<Checkbox :name="key" :inputId="key" v-model="settings.shouldSave[key]" binary/>
+								<label :for="key">{{ formatLabel(key) }}?</label>
+							</div>	
 
-					</div>
-				</Fieldset>	
+						</div>
+					</Fieldset>	
 
-				<Fieldset legend="Other" toggleable :collapsed="true">
-					<div class="other-settings">
-						<Button severity="danger" 
-								size="small"
-								label="Open Dev Tools"
-								v-tooltip="' ** WARNING ** Don\'t change anything with this. Use for debugging if anything goes wrong.'" 
-								@click="onOpenDevTools" 
-								outlined
-						/>
-					</div>
-				</Fieldset>
+					<Fieldset legend="Other" toggleable :collapsed="true">
+						<div class="other-settings">
+							<Button severity="danger" 
+									size="small"
+									label="Open Dev Tools"
+									v-tooltip="' ** WARNING ** Don\'t change anything with this. Use for debugging if anything goes wrong.'" 
+									@click="onOpenDevTools" 
+									outlined
+							/>
+						</div>
+					</Fieldset>
+				</div>
 
 				<div class="settings-form-buttons">
 					<Button type="submit" label="Save" outlined/>
@@ -320,13 +322,25 @@ function shouldProcessBeDisabled() {
 	.settings-form {
 		display: flex;
 		flex-direction: column;
-		justify-content: space-between;
+		justify-content: flex-start;
 
 		width: 100%;
 		height: 100%;
 
+		.settings-content {
+			flex: 1; 
+			overflow-y: auto; 
+			display: flex;
+			flex-direction: column;
+
+			gap: 10px;
+		}
 		.settings-form-buttons {
 			width: 100%;
+
+			flex-shrink: 0;
+			position: sticky;
+			bottom: 0;
 
 			> Button {
 				width: 100%;
