@@ -4,7 +4,6 @@ import { fileURLToPath } from 'url'
 import { IoService } from './services/IoService.ts'
 import path from "path"
 import AutoUpdater from 'electron-updater'
-import log from 'electron-log'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -12,8 +11,7 @@ const ioService = new IoService()
 const autoUpdater = AutoUpdater.autoUpdater
 let mainWindow: BrowserWindow
 
-autoUpdater.logger = require('electron-log')
-autoUpdater.logger.transports.file.level = 'debug'
+autoUpdater.logger
 
 app.setName('Copy Cart')
 app.whenReady().then(() => {
@@ -26,7 +24,12 @@ app.whenReady().then(() => {
 	// })
 	if(app.isPackaged) {
 		console.log("...Checking for updates...")
-		autoUpdater.checkForUpdates()
+		autoUpdater.setFeedURL({
+			provider: "github",
+			owner: "ddbogdanov",
+			repo: "CopyCart",
+		});
+		autoUpdater.checkForUpdates().catch((error: any) => console.log(error))
 	}
 	
 	autoUpdater.on('update-not-available', () => {
@@ -48,7 +51,7 @@ app.whenReady().then(() => {
 			buttons: ['Download', 'Later'],
 		})
 		if (choice === 0) {
-			autoUpdater.downloadUpdate()
+			autoUpdater.downloadUpdate().catch((error: any) => console.log(error))
 		}
 	})
 	autoUpdater.on('update-downloaded', () => {
