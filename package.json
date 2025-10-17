@@ -3,7 +3,7 @@
   "productName": "Copy Cart",
   "description": "Copy files using order import",
   "private": true,
-  "version": "1.4.2",
+  "version": "1.4.3",
   "type": "module",
   "scripts": {
     "dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
@@ -33,6 +33,7 @@
     "@electron-forge/plugin-auto-unpack-natives": "^7.10.0",
     "@electron-forge/plugin-fuses": "^7.10.0",
     "@electron/fuses": "^1.8.0",
+    "@types/electron": "^1.4.38",
     "@types/node": "^24.6.0",
     "@vitejs/plugin-vue": "^6.0.1",
     "@vue/tsconfig": "^0.8.1",
