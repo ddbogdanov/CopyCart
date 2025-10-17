@@ -4,6 +4,10 @@ import { fileURLToPath } from 'url'
 import { IoService } from './services/IoService.ts'
 import path from "path"
 import { updateElectronApp } from 'update-electron-app'
+import { createRequire } from 'module'
+const require = createRequire(import.meta.url)
+
+handleSquirrelEvent()
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -30,41 +34,25 @@ app.on('before-quit', () => {
   }
 })
 
+// *** IPC Handlers ***
 ipcMain.handle("open-file-dialog", async (event, title, properties, filters) => {
   event
   const { filePaths } = await ioService.openFileDialog(dialog, title, properties, filters)
 
-  if(title === 'Import Orders') {
-	ioService.cacheFile(filePaths[0])
-  }
-  if(title === 'Select Print Files') {
-	ioService.setPrintFiles(filePaths[0])
-  }
-  if(title === 'Select Print Folder') {
-	ioService.setPrintFolder(filePaths[0])
-  }
+  if(title === 'Import Orders') ioService.cacheFile(filePaths[0])
+  if(title === 'Select Print Files') ioService.setPrintFiles(filePaths[0])
+  if(title === 'Select Print Folder') ioService.setPrintFolder(filePaths[0])
 
   return filePaths[0];
 })
-
-ipcMain.handle("delete-cache", () => {
-	ioService.deleteCache()
-})
-ipcMain.handle("delete-print-files", () => {
-	ioService.deletePrintFiles()
-})
-ipcMain.handle("delete-print-folder", () => {
-	ioService.deletePrintFolder()
-})
+ipcMain.handle("delete-cache", () => { ioService.deleteCache() })
+ipcMain.handle("delete-print-files", () => { ioService.deletePrintFiles() })
+ipcMain.handle("delete-print-folder", () => { ioService.deletePrintFolder() })
 ipcMain.handle('update-loading-state', (_event: any, isLoading: boolean, progress: number, status: string) => {
 	mainWindow.webContents.send('update:loading:state', { 'isLoading': isLoading, 'progress': progress, 'status': status })
 })
-ipcMain.handle('process-files', () => {
-	ioService.processFiles()
-})
-ipcMain.handle('minimize', () => {
-	mainWindow.minimize()
-})
+ipcMain.handle('process-files', () => { ioService.processFiles() })
+ipcMain.handle('minimize', () => { mainWindow.minimize() })
 ipcMain.handle('toggle-maximize', () => {
 	if(mainWindow.isMaximized()) {
 		mainWindow.unmaximize()
@@ -75,16 +63,11 @@ ipcMain.handle('toggle-maximize', () => {
 		mainWindow.webContents.send('window:maximize:update', { 'maximized': true })
 	}
 })
-ipcMain.handle('exit', () => {
-	mainWindow.close()
-})
-ipcMain.handle('save-settings', (_event: any, settings: Record<string, any>) => {
-	ioService.saveSettings(settings, false)
-})
-ipcMain.handle('open-dev-tools', () => {
-	mainWindow.webContents.openDevTools()
-})
+ipcMain.handle('exit', () => { mainWindow.close() })
+ipcMain.handle('save-settings', (_event: any, settings: Record<string, any>) => { ioService.saveSettings(settings, false) })
+ipcMain.handle('open-dev-tools', () => { mainWindow.webContents.openDevTools() })
 
+// *** Util Methods ***
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 850,
@@ -108,4 +91,44 @@ function createWindow() {
   else {
 	mainWindow.loadURL('http://localhost:5173')
   }
+}
+
+function handleSquirrelEvent() {
+	if(require('electron-squirrel-startup')) app.quit()
+	
+	if (process.platform !== 'win32') {
+    	return false;
+	}
+
+	var squirrelCommand = process.argv[1];
+	switch (squirrelCommand) {
+		case '--squirrel-install':
+		case '--squirrel-updated':
+
+		// Optionally do things such as:
+		//
+		// - Install desktop and start menu shortcuts
+		// - Add your .exe to the PATH
+		// - Write to the registry for things like file associations and
+		//   explorer context menus
+
+		// Always quit when done
+		app.quit();
+
+		return true;
+		case '--squirrel-uninstall':
+		// Undo anything you did in the --squirrel-install and
+		// --squirrel-updated handlers
+
+		// Always quit when done
+		app.quit();
+
+		return true;
+		case '--squirrel-obsolete':
+		// This is called on the outgoing version of your app before
+		// we update to the new version - it's the opposite of
+		// --squirrel-updated
+		app.quit();
+		return true;
+	}
 }
