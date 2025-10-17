@@ -8,6 +8,7 @@ export interface ElectronAPI {
   toggleMaximize: () => void
   exit: () => void
   saveSettings: (settings: any) => Promise<boolean>
+  openDevTools: () => void
 
   onLoadingStateUpdate: (callback: (isLoading: boolean, progress: number, status: string) => void) => void
   onToast: (callback: (message: string) => void) => void

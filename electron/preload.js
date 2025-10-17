@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   toggleMaximize: () => ipcRenderer.invoke('toggle-maximize'),
   exit: () => ipcRenderer.invoke('exit'),
   saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings),
+  openDevTools: () => ipcRenderer.invoke('open-dev-tools'),
 
   onPrintFilesUpdate: (callback) => {
 	ipcRenderer.on('print:files:update', (_event, update) => {

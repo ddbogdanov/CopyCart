@@ -82,6 +82,18 @@
 					</div>
 				</Fieldset>	
 
+				<Fieldset legend="Other" toggleable :collapsed="true">
+					<div class="other-settings">
+						<Button severity="danger" 
+								size="small"
+								label="Open Dev Tools"
+								v-tooltip="' ** WARNING ** Don\'t change anything with this. Use for debugging if anything goes wrong.'" 
+								@click="onOpenDevTools" 
+								outlined
+						/>
+					</div>
+				</Fieldset>
+
 				<div class="settings-form-buttons">
 					<Button type="submit" label="Save" outlined/>
 				</div>
@@ -187,6 +199,9 @@ function formatLabel(key: string) {
     .replace(/^./, str => str.toUpperCase()) // capitalize first letter
 }
 
+function onOpenDevTools() {
+	window.electronAPI.openDevTools()
+}
 function minimize() {
 	window.electronAPI.minimize()
 }
@@ -334,6 +349,16 @@ function shouldProcessBeDisabled() {
 			> label {
 				text-wrap: nowrap;
 				font-size: 12px;
+			}
+		}
+		.other-settings {
+			width: 100%;
+
+			display: flex;
+			justify-content: center;
+
+			> Button {
+				width: 100%;
 			}
 		}
 	}

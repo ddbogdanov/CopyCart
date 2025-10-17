@@ -81,6 +81,9 @@ ipcMain.handle('exit', () => {
 ipcMain.handle('save-settings', (_event: any, settings: Record<string, any>) => {
 	ioService.saveSettings(settings, false)
 })
+ipcMain.handle('open-dev-tools', () => {
+	mainWindow.webContents.openDevTools()
+})
 
 function createWindow() {
   mainWindow = new BrowserWindow({
