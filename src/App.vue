@@ -4,7 +4,7 @@
 			<span id="app-version">Copy Cart v{{ version }}</span>
 
 			<ButtonGroup class="window-controls">
-				<Button severity="secondary" icon="pi pi-cog" variant="text" size="small" @click="openSettings" id="settings"/>
+				<Button severity="info" icon="pi pi-cog" variant="text" size="small" @click="openSettings" id="settings"/>
 				<Button severity="secondary" icon="pi pi-chevron-down" variant="text" size="small" @click="minimize"/>
 				<Button severity="secondary" :icon="maximizeIcon" variant="text" size="small" @click="toggleMaximize"/>
 				<Button severity="danger" icon="pi pi-times" variant="text" size="small" @click="exit"/>
@@ -389,6 +389,8 @@ function shouldProcessBeDisabled() {
 
 			display: flex;
 			justify-content: center;
+
+			padding: 5px;
 
 			> Button {
 				width: 100%;

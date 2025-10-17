@@ -3,68 +3,103 @@ import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { IoService } from './services/IoService.ts'
 import path from "path"
-import { updateElectronApp } from 'update-electron-app'
+import AutoUpdater from 'electron-updater'
+import log from 'electron-log'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 const ioService = new IoService()
+const autoUpdater = AutoUpdater.autoUpdater
 let mainWindow: BrowserWindow
+
+autoUpdater.logger = require('electron-log')
+autoUpdater.logger.transports.file.level = 'debug'
 
 app.setName('Copy Cart')
 app.whenReady().then(() => {
 	createWindow()
 
-	updateElectronApp({ notifyUser: true })
+	autoUpdater.autoInstallOnAppQuit = false
+
+	// updateElectronApp({ 
+	// 	notifyUser: true 
+	// })
+	if(app.isPackaged) {
+		console.log("...Checking for updates...")
+		autoUpdater.checkForUpdates()
+	}
+	
+	autoUpdater.on('update-not-available', () => {
+		const choice = dialog.showMessageBoxSync(mainWindow, {
+			type: 'info',
+			title: 'Update Not Found',
+			message: 'No update',
+			buttons: ['Restart', 'Later'],
+		})
+		if (choice === 0) {
+			console.log('No update')
+		}
+	})
+	autoUpdater.on('update-available', () => {
+		const choice = dialog.showMessageBoxSync(mainWindow, {
+			type: 'info',
+			title: 'Update Available',
+			message: 'A new version of Copy Cart is available. Download it now?',
+			buttons: ['Download', 'Later'],
+		})
+		if (choice === 0) {
+			autoUpdater.downloadUpdate()
+		}
+	})
+	autoUpdater.on('update-downloaded', () => {
+		const choice = dialog.showMessageBoxSync(mainWindow, {
+			type: 'info',
+			title: 'Update Ready',
+			message: 'The update has been downloaded. Restart now to install?',
+			buttons: ['Restart', 'Later'],
+		})
+		if (choice === 0) {
+			autoUpdater.quitAndInstall()
+		}
+	})
+	autoUpdater.on('error', (message) => {
+		console.error('There was a problem updating the application')
+		console.error(message)
+	})
 
 	mainWindow.webContents.on('did-finish-load', () => {
 		ioService.loadSettings()
 	})
 })
 
-app.on('window-all-closed', () => {
-	if (process.platform !== 'darwin') app.quit()
-})
+// *** App Events ***
+app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit() })
 app.on('before-quit', () => {
   if (mainWindow) {
     if (ioService.saveSettings(undefined, true)) console.log('Settings saved on quit')
   }
 })
 
+// *** IPC Handlers ***
 ipcMain.handle("open-file-dialog", async (event, title, properties, filters) => {
-  event
-  const { filePaths } = await ioService.openFileDialog(dialog, title, properties, filters)
+	event;
+  	const { filePaths } = await ioService.openFileDialog(dialog, title, properties, filters)
 
-  if(title === 'Import Orders') {
-	ioService.cacheFile(filePaths[0])
-  }
-  if(title === 'Select Print Files') {
-	ioService.setPrintFiles(filePaths[0])
-  }
-  if(title === 'Select Print Folder') {
-	ioService.setPrintFolder(filePaths[0])
-  }
+  	if (title === 'Import Orders') ioService.cacheFile(filePaths[0])
+  	if (title === 'Select Print Files') ioService.setPrintFiles(filePaths[0])
+  	if (title === 'Select Print Folder') ioService.setPrintFolder(filePaths[0])
 
-  return filePaths[0];
+  return filePaths[0]
 })
 
-ipcMain.handle("delete-cache", () => {
-	ioService.deleteCache()
-})
-ipcMain.handle("delete-print-files", () => {
-	ioService.deletePrintFiles()
-})
-ipcMain.handle("delete-print-folder", () => {
-	ioService.deletePrintFolder()
-})
+ipcMain.handle("delete-cache", () => { ioService.deleteCache() })
+ipcMain.handle("delete-print-files", () => { ioService.deletePrintFiles() })
+ipcMain.handle("delete-print-folder", () => { ioService.deletePrintFolder() })
 ipcMain.handle('update-loading-state', (_event: any, isLoading: boolean, progress: number, status: string) => {
 	mainWindow.webContents.send('update:loading:state', { 'isLoading': isLoading, 'progress': progress, 'status': status })
 })
-ipcMain.handle('process-files', () => {
-	ioService.processFiles()
-})
-ipcMain.handle('minimize', () => {
-	mainWindow.minimize()
-})
+ipcMain.handle('process-files', () => { ioService.processFiles() })
+ipcMain.handle('minimize', () => { mainWindow.minimize() })
 ipcMain.handle('toggle-maximize', () => {
 	if(mainWindow.isMaximized()) {
 		mainWindow.unmaximize()
@@ -75,16 +110,11 @@ ipcMain.handle('toggle-maximize', () => {
 		mainWindow.webContents.send('window:maximize:update', { 'maximized': true })
 	}
 })
-ipcMain.handle('exit', () => {
-	mainWindow.close()
-})
-ipcMain.handle('save-settings', (_event: any, settings: Record<string, any>) => {
-	ioService.saveSettings(settings, false)
-})
-ipcMain.handle('open-dev-tools', () => {
-	mainWindow.webContents.openDevTools()
-})
+ipcMain.handle('exit', () => { mainWindow.close() })
+ipcMain.handle('save-settings', (_event: any, settings: Record<string, any>) => { ioService.saveSettings(settings, false) })
+ipcMain.handle('open-dev-tools', () => { mainWindow.webContents.openDevTools() })
 
+// *** Util Methods ***
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 850,

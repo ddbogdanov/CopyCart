@@ -3,7 +3,7 @@
   "productName": "Copy Cart",
   "description": "Copy files using order import",
   "private": true,
-  "version": "1.4.5",
+  "version": "1.0.500",
   "type": "module",
   "scripts": {
     "dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
@@ -19,6 +19,7 @@
     "@primevue/forms": "^4.4.1",
     "csv-parser": "^3.2.0",
     "electron-squirrel-startup": "^1.0.1",
+    "electron-updater": "^6.6.2",
     "primeicons": "^7.0.0",
     "primevue": "^4.4.0",
     "update-electron-app": "^3.1.1",
