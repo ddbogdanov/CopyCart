@@ -4,8 +4,6 @@ import { fileURLToPath } from 'url'
 import { IoService } from './services/IoService.ts'
 import path from "path"
 import { updateElectronApp } from 'update-electron-app'
-import { createRequire } from 'module'
-const require = createRequire(import.meta.url)
 
 // TODO: TEST THIS?? BUT HOW?!
 if(handleSquirrelEvent()) {
