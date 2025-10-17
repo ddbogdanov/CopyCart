@@ -67,26 +67,27 @@
 
 		<Toast/>
 
-		<Drawer header="Settings" class="settings-drawer" position="right" v-model:visible="settingsVisible">
+		<Drawer header="Settings" class="settings-drawer" position="right" v-model:visible="settingsVisible" @hide="onCloseSettings">
+
 			<Form @submit="onSaveSettings" :initialValues="settings" class="settings-form">
 
 				<Fieldset legend="Save on exit?" toggleable>
 					<div class="should-save">
-						<div class="checkbox-item" 
-							v-for="(value, key) in settings.shouldSave"
-							:key="key"
-						>
+
+						<div class="checkbox-item" v-for="(value, key) in settings.shouldSave" :key="key">
 							<Checkbox :name="key" :inputId="key" v-model="settings.shouldSave[key]" binary/>
 							<label :for="key">{{ formatLabel(key) }}?</label>
-						</div>
+						</div>	
+
 					</div>
-				</Fieldset>
+				</Fieldset>	
 
 				<div class="settings-form-buttons">
 					<Button type="submit" label="Save" outlined/>
 				</div>
 
 			</Form>
+
 		</Drawer>
 	</div>
 </template>
@@ -118,6 +119,16 @@ const settings = ref({
 	printFiles: '',
 	printFolder: '',
 })
+let backupSettings = {
+	shouldSave: {
+		imports: false,
+		printFiles: true,
+		printFolder: true,
+	},
+	imports: '',
+	printFiles: '',
+	printFolder: '',
+}
 
 onMounted(() => {
 	window.electronAPI.onLoadingStateUpdate((isLoading, p, s) => {
@@ -160,10 +171,15 @@ function deletePrintFolder() {
 }
 
 function openSettings() {
+	backupSettings = JSON.parse(JSON.stringify(settings.value))
 	settingsVisible.value = true
 }
 function onSaveSettings() {
-	window.electronAPI.saveSettings(toRaw(settings.value))	
+	backupSettings = JSON.parse(JSON.stringify(settings.value))
+	window.electronAPI.saveSettings(toRaw(settings.value))
+}
+function onCloseSettings() {
+	settings.value = backupSettings
 }
 function formatLabel(key: string) {
   return key

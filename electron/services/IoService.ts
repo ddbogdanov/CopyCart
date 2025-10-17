@@ -1,13 +1,13 @@
-import { app, BrowserWindow } from 'electron';
-import type { FileFilter } from 'electron';
-import fs from "fs";
-import csv from "csv-parser";
-import path from "path";
+import { app, BrowserWindow } from 'electron'
+import type { FileFilter } from 'electron'
+import fs from "fs"
+import csv from "csv-parser"
+import path from "path"
 
 export class IoService {
 	private importCache: Array<any> = new Array()
 	private fileCache: Map<string, string> = new Map()
-	settings: any = {
+	settings: Record<string, any> = {
 		shouldSave: {
 			imports: false,
 			printFiles: true,
@@ -17,6 +17,7 @@ export class IoService {
 		printFiles: '',
 		printFolder: '',
 	}
+
 	settingsPath: string = ''
 	mainWindow?: BrowserWindow
 
@@ -67,19 +68,26 @@ export class IoService {
 		return true;
 	}
 
-	saveSettings(settings?: object, isClosing?: boolean): boolean {
+	saveSettings(s?: object, isClosing?: boolean): boolean {
 		if(isClosing) {
-			if(!this.settings.shouldSave.imports) this.settings.imports = ''
-			if(!this.settings.shouldSave.printFiles) this.settings.printFiles = ''
-			if(!this.settings.shouldSave.printFolder) this.settings.printFolder = ''
+			if(!this.settings?.shouldSave?.imports) this.settings.imports = ''
+			if(!this.settings?.shouldSave?.printFiles) this.settings.printFiles = ''
+			if(!this.settings?.shouldSave?.printFolder) this.settings.printFolder = ''
 		}
 
-		const settingsToSave = {...this.settings, ...settings}
+		const settingsToSave = { ...(this.settings ?? {}), ...(s ?? {}) } 
 
 		try {
 			console.log(`Saving settings to: ${this.settingsPath}`)
-			fs.writeFileSync(this.settingsPath, JSON.stringify(settingsToSave), 'utf-8')
-			if(!isClosing) this.mainWindow?.webContents.send('settings:saved', true)		
+
+		    if (fs.existsSync(this.settingsPath)) {
+            	fs.unlinkSync(this.settingsPath)
+        	}
+			fs.writeFileSync(this.settingsPath, JSON.stringify(settingsToSave, null, 2), 'utf-8')
+
+			if(!isClosing && this.mainWindow?.webContents)  {
+				this.mainWindow?.webContents.send('settings:saved', true)		
+			}
 			this.settings = settingsToSave
 
 			return true
@@ -95,10 +103,7 @@ export class IoService {
 			if(fs.existsSync(this.settingsPath ?? '')) {
 				const settingsToRead = JSON.parse(fs.readFileSync(this.settingsPath, 'utf-8'))
 
-				this.settings.shouldSave = settingsToRead.shouldSave
-				this.settings.imports = settingsToRead.imports
-				this.settings.printFiles = settingsToRead.printFiles
-				this.settings.printFolder = settingsToRead.printFolder
+				this.settings = { ...this.settings, ...settingsToRead } // Overwrite defaults with values read from file
 
 				if(this.settings.imports) {
 					this.cacheFile(this.settings.imports)
@@ -115,7 +120,16 @@ export class IoService {
 			console.error('Error reading settings:', error)
 		}
 
-		return {}
+		return {
+			shouldSave: {
+				imports: false,
+				printFiles: true,
+				printFolder: true,
+			},
+			imports: '',
+			printFiles: '',
+			printFolder: '',
+		}
 	}
 
 	async cacheFile(filePath: string): Promise<boolean> {

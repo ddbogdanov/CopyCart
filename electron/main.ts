@@ -32,11 +32,7 @@ app.on('before-quit', () => {
 
 ipcMain.handle("open-file-dialog", async (event, title, properties, filters) => {
   event
-  const { canceled, filePaths } = await ioService.openFileDialog(dialog, title, properties, filters)
-
-  if (canceled) {
-	return null
-  }
+  const { filePaths } = await ioService.openFileDialog(dialog, title, properties, filters)
 
   if(title === 'Import Orders') {
 	ioService.cacheFile(filePaths[0])
