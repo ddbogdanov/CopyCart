@@ -66,6 +66,7 @@
 		</div>
 
 		<Toast/>
+		<ConfirmPopup/>
 
 		<Drawer header="Settings" class="settings-drawer" position="right" v-model:visible="settingsVisible" @hide="onCloseSettings">
 
@@ -88,8 +89,7 @@
 							<Button severity="danger" 
 									size="small"
 									label="Open Dev Tools"
-									v-tooltip="' ** WARNING ** Don\'t change anything with this. Use for debugging if anything goes wrong.'" 
-									@click="onOpenDevTools" 
+									@click="onOpenDevTools($event)" 
 									outlined
 							/>
 						</div>
@@ -114,12 +114,14 @@ import Progress from './components/Progress.vue'
 import CheckList from './components/CheckList.vue'
 import Toast from 'primevue/toast'
 import { useToast } from 'primevue/usetoast';
+import { useConfirm } from 'primevue/useconfirm'
 import { Form } from '@primevue/forms'
 
+const toast = useToast();
+const confirm = useConfirm();
 const isProcessing = ref(false)
 const progress = ref(0)
 const status = ref('Select a file to import')
-const toast = useToast();
 const version = ref(__APP_VERSION__)
 const maximizeIcon = ref('pi pi-chevron-up')
 const settingsVisible = ref(false)
@@ -201,8 +203,25 @@ function formatLabel(key: string) {
     .replace(/^./, str => str.toUpperCase()) // capitalize first letter
 }
 
-function onOpenDevTools() {
-	window.electronAPI.openDevTools()
+function onOpenDevTools(event: any) {
+	confirm.require({
+		target: event.currentTarget,
+		message: "** WARNING! ** Use dev tools ONLY for DEBUGGING. Do NOT change any DOM elements, settings, configurations, network calls, etc. Any modifications made may break functionality or cause unwanted behavior. You have been warned.",
+		icon: 'pi pi-exclamation-triangle',
+		rejectProps: {
+			label: 'I\'m scared',
+			severity: 'primary',
+		},
+		acceptProps: {
+			label: 'Ok',
+			severity: 'danger',
+			outlined: true
+		},
+		accept: () => {
+			window.electronAPI.openDevTools()
+		}
+	})
+	
 }
 function minimize() {
 	window.electronAPI.minimize()

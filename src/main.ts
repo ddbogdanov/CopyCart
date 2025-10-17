@@ -46,6 +46,7 @@ app.mount('#app')
 // FIRST: npm run build
 // THEN: Build/Make Command: npx electron-forge make --platform win32 --arch x64
 // ^ to publish add --publish always
+// npx electron-forge make --platform win32 --publish always --arch x64
 //
 // SHA Hash for latest.yml:    node -e "console.log(require('crypto').createHash('sha512').update(require('fs').readFileSync('CopyCartInstaller.exe')).digest('base64'))"
 
