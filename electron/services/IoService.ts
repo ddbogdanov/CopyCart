@@ -16,6 +16,7 @@ export class IoService {
 		imports: '',
 		printFiles: '',
 		printFolder: '',
+		themeColor: '#34d399'
 	}
 
 	settingsPath: string = ''
@@ -129,6 +130,7 @@ export class IoService {
 			imports: '',
 			printFiles: '',
 			printFolder: '',
+			themeColor: '#34d399'
 		}
 	}
 

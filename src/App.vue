@@ -57,7 +57,7 @@
 		</div>
 
 		<Drawer header="Settings" class="settings-drawer" position="right" v-model:visible="settingsVisible" @hide="onCloseSettings" style="width: 50vw;">
-			<SettingsForm :settings="settings" @onSaveSettings="onSaveSettings"/>
+			<SettingsForm :settings="settings" @onUpdateTheme="onUpdateTheme" @onSaveSettings="onSaveSettings"/>
 		</Drawer>
 	</div>
 
@@ -68,6 +68,8 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useToast } from 'primevue/usetoast'
+import { palette } from '@primeuix/themes';
+import { updatePrimaryPalette } from '@primeuix/themes';
 import FileDrop from './components/FileDrop.vue'
 import ProcessFiles from './components/ProcessFiles.vue'
 import Progress from './components/Progress.vue'
@@ -91,6 +93,7 @@ const settings = ref({
 	imports: '',
 	printFiles: '',
 	printFolder: '',
+	themeColor: '#34d399'
 })
 let backupSettings = {
 	shouldSave: {
@@ -101,6 +104,7 @@ let backupSettings = {
 	imports: '',
 	printFiles: '',
 	printFolder: '',
+	themeColor: '#34d399'
 }
 
 onMounted(() => {
@@ -152,6 +156,27 @@ function onCloseSettings() {
 }
 function onSaveSettings(settings: any) {
 	backupSettings = settings
+}
+function onUpdateTheme(color: any) {
+	settings.value.themeColor = color
+	let primaries = palette(color)
+
+	console.log(color.value)
+	console.log(primaries['500'])
+
+	updatePrimaryPalette({
+        50: primaries['50'],
+        100: primaries['100'],
+        200: primaries['200'],
+        300: primaries['300'],
+        400: primaries['400'],
+        500: primaries['500'],
+        600: primaries['600'],
+        700: primaries['700'],
+        800: primaries['800'],
+        900: primaries['900'],
+        950: primaries['950']
+    })
 }
 
 function shouldProcessBeDisabled() {

@@ -56,6 +56,13 @@
                 </div>
              </Fieldset>
 
+            <Fieldset legend="Theme" toggleable :collapsed="true">
+                <div class="theme">
+                    <ColorPicker v-model="colorSelection" format="hex" inline/>
+                    <Button severity="primary" label="Update Color" @click="onUpdateTheme" outlined/>
+                </div>
+            </Fieldset>
+
             <Fieldset legend="Other" toggleable :collapsed="true">
                 <div class="other-settings">
 
@@ -80,19 +87,23 @@
 </template>
 
 <script setup lang="ts">
-import { toRaw } from 'vue'
+import { ref, toRaw } from 'vue'
 import { Form } from '@primevue/forms'
 import { useConfirm } from 'primevue/useconfirm'
 
 const confirm = useConfirm();
 const props = defineProps(['settings', 'backupSettings'])
-const emit = defineEmits(['onSaveSettings'])
+const emit = defineEmits(['onSaveSettings', 'onUpdateTheme'])
+const colorSelection = ref('34d399')
 
 // pi-times pi-minus and pi-check
 const apiTestIcon = 'pi pi-minus'
 const apiTestColor = 'var(--p-surface-500)'
 const apiTestStatus = 'Test Connection'
 
+function onUpdateTheme() {
+    emit('onUpdateTheme', '#' + colorSelection.value)
+}
 function onSaveSettings() {
 	emit('onSaveSettings', JSON.parse(JSON.stringify(props.settings)))
 	window.electronAPI.saveSettings(toRaw(props.settings))
@@ -177,7 +188,10 @@ function onOpenDevTools(event: any) {
 				font-size: 12px;
 			}
 		}
-
+        .theme {
+            display: flex;
+            justify-content: space-between;
+        }
         .shopify-integration {
             width: 100%;
 

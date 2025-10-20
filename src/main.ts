@@ -5,6 +5,8 @@ import App from './App.vue'
 // PrimeVue Imports
 import PrimeVue from 'primevue/config'
 import Aura from '@primeuix/themes/aura'
+import { definePreset } from '@primeuix/themes'
+import { palette } from '@primeuix/themes';
 
 // PrimeVue Components
 import Button from 'primevue/button'
@@ -21,12 +23,21 @@ import Password from 'primevue/password'
 import InputText from 'primevue/inputtext'
 import FloatLabel from 'primevue/floatlabel'
 import Divider from 'primevue/divider'
+import ColorPicker from 'primevue/colorpicker';
+
+
+const primaries = palette('#34d399')
+const stylePreset = definePreset(Aura, {
+  semantic: {
+    primary: primaries
+  }
+});
 
 const app = createApp(App)
 
 app.use(PrimeVue, {
     theme: {
-        preset: Aura,
+        preset: stylePreset,
 		options: {
             darkModeSelector: '.copy-cart-dark',
         }
@@ -46,6 +57,7 @@ app.component('Password', Password)
 app.component('InputText', InputText)
 app.component('FloatLabel', FloatLabel)
 app.component('Divider', Divider)
+app.component('ColorPicker', ColorPicker)
 
 app.directive('tooltip', Tooltip)
 
