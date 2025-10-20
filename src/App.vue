@@ -65,13 +65,13 @@
 			</div>
 		</div>
 
-		<Toast/>
-		<ConfirmPopup/>
-
 		<Drawer header="Settings" class="settings-drawer" position="right" v-model:visible="settingsVisible" @hide="onCloseSettings">
 			<SettingsForm :settings="settings" @onSaveSettings="onSaveSettings"/>
 		</Drawer>
 	</div>
+
+	<Toast/>
+	<ConfirmPopup/>
 </template>
 
 <script setup lang="ts">

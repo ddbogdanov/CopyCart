@@ -40,6 +40,8 @@ ipcMain.handle("open-file-dialog", async (event, title, properties, filters) => 
 	event
 	const { filePaths } = await ioService.openFileDialog(dialog, title, properties, filters)
 
+	if(!filePaths[0]) return
+
 	if(title === 'Import Orders') ioService.cacheFile(filePaths[0])
 	if(title === 'Select Print Files') ioService.setPrintFiles(filePaths[0])
 	if(title === 'Select Print Folder') ioService.setPrintFolder(filePaths[0])
