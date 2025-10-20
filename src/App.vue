@@ -1,15 +1,6 @@
 <template>
 	<div class="main">
-		<div class="header">
-			<span id="app-version">Copy Cart v{{ version }}</span>
-
-			<ButtonGroup class="window-controls">
-				<Button severity="secondary" icon="pi pi-cog" variant="text" size="small" @click="openSettings" id="settings"/>
-				<Button severity="secondary" icon="pi pi-chevron-down" variant="text" size="small" @click="minimize"/>
-				<Button severity="secondary" :icon="maximizeIcon" variant="text" size="small" @click="toggleMaximize"/>
-				<Button severity="danger" icon="pi pi-times" variant="text" size="small" @click="exit"/>
-			</ButtonGroup>
-		</div>
+		<Header @openSettings="openSettings"/>
 
 		<div class="control-container">
 			<div class="input-container">
@@ -83,12 +74,12 @@ import Progress from './components/Progress.vue'
 import CheckList from './components/CheckList.vue'
 import Toast from 'primevue/toast'
 import SettingsForm from './components/SettingsForm.vue'
+import Header from './components/Header.vue'
 
 const toast = useToast();
 const isProcessing = ref(false)
 const progress = ref(0)
 const status = ref('Select a file to import')
-const version = ref(__APP_VERSION__)
 const maximizeIcon = ref('pi pi-chevron-up')
 const settingsVisible = ref(false)
 const settings = ref({
@@ -163,15 +154,6 @@ function onSaveSettings(settings: any) {
 	backupSettings = settings
 }
 
-function minimize() {
-	window.electronAPI.minimize()
-}
-function toggleMaximize() {
-	window.electronAPI.toggleMaximize()
-}
-function exit() {
-	window.electronAPI.exit()
-}
 function shouldProcessBeDisabled() {
 	return !(settings.value.imports && settings.value.printFolder && settings.value.printFiles)
 }
@@ -182,45 +164,6 @@ function shouldProcessBeDisabled() {
 	.main {
 		width: 100%;
 		height: 100%;
-	}
-
-	.header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-
-		width: 100%;
-		height: 40px;
-		padding: 5px;
-
-		background: var(--p-primary-900);
-
-		-webkit-app-region: drag;
-
-		> .window-controls {
-			-webkit-app-region: no-drag;
-
-			:deep(.p-button.p-button-sm .p-button-icon) {
-				font-size: 12px !important; 
-			}
-			> Button {
-				padding: 12px;
-				height: 15px;
-				width: 15px;
-			}
-		}
-
-		> #app-version {
-			position: relative;
-			top: 1px;             
-			left: 5px;              
-			opacity: 0.6;
-			pointer-events: none;
-			user-select: none;    
-			z-index: 9999;
-
-			font-size: 12px;
-		}
 	}
 
 	.control-container {
