@@ -30,21 +30,21 @@ app.on('window-all-closed', () => {
 	if (process.platform !== 'darwin') app.quit()
 })
 app.on('before-quit', () => {
-  if (mainWindow) {
-    if (ioService.saveSettings(undefined, true)) console.log('Settings saved on quit')
-  }
+	if (mainWindow) {
+    	if (ioService.saveSettings(undefined, true)) console.log('Settings saved on quit')
+  	}
 })
 
 // *** IPC Handlers ***
 ipcMain.handle("open-file-dialog", async (event, title, properties, filters) => {
-  event
-  const { filePaths } = await ioService.openFileDialog(dialog, title, properties, filters)
+	event
+	const { filePaths } = await ioService.openFileDialog(dialog, title, properties, filters)
 
-  if(title === 'Import Orders') ioService.cacheFile(filePaths[0])
-  if(title === 'Select Print Files') ioService.setPrintFiles(filePaths[0])
-  if(title === 'Select Print Folder') ioService.setPrintFolder(filePaths[0])
+	if(title === 'Import Orders') ioService.cacheFile(filePaths[0])
+	if(title === 'Select Print Files') ioService.setPrintFiles(filePaths[0])
+	if(title === 'Select Print Folder') ioService.setPrintFolder(filePaths[0])
 
-  return filePaths[0];
+	return filePaths[0];
 })
 ipcMain.handle("delete-cache", () => { ioService.deleteCache() })
 ipcMain.handle("delete-print-files", () => { ioService.deletePrintFiles() })
@@ -70,26 +70,26 @@ ipcMain.handle('open-dev-tools', () => { mainWindow.webContents.openDevTools() }
 
 // *** Util Methods ***
 function createWindow() {
-  mainWindow = new BrowserWindow({
-    width: 850,
-    height: 450,
-	frame: false,
-    webPreferences: {
-      preload: join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-    },
-	title: 'Copy Cart',
-	icon: path.join(__dirname, "../build/icons/icon.png")
-  })
+	mainWindow = new BrowserWindow({
+		width: 850,
+		height: 450,
+		frame: false,
+		webPreferences: {
+			preload: join(__dirname, 'preload.js'),
+			contextIsolation: true,
+			nodeIntegration: false,
+		},
+		title: 'Copy Cart',
+		icon: path.join(__dirname, "../build/icons/icon.png")
+	})
 
-  ioService.setMainWindow(mainWindow)
+	ioService.setMainWindow(mainWindow)
 
-  if(app.isPackaged) {
-	mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
-	mainWindow.setMenu(null)
-  }
-  else {
-	mainWindow.loadURL('http://localhost:5173')
-  }
+  	if(app.isPackaged) {
+		mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
+		mainWindow.setMenu(null)
+  	}
+  	else {
+		mainWindow.loadURL('http://localhost:5173')
+  	}
 }

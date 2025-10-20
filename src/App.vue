@@ -69,56 +69,22 @@
 		<ConfirmPopup/>
 
 		<Drawer header="Settings" class="settings-drawer" position="right" v-model:visible="settingsVisible" @hide="onCloseSettings">
-
-			<Form @submit="onSaveSettings" :initialValues="settings" class="settings-form">
-
-				<div class="settings-content">
-					<Fieldset legend="Save on exit?" toggleable>
-						<div class="should-save">
-
-							<div class="checkbox-item" v-for="(value, key) in settings.shouldSave" :key="key">
-								<Checkbox :name="key" :inputId="key" v-model="settings.shouldSave[key]" binary/>
-								<label :for="key">{{ formatLabel(key) }}?</label>
-							</div>	
-
-						</div>
-					</Fieldset>	
-
-					<Fieldset legend="Other" toggleable :collapsed="true">
-						<div class="other-settings">
-							<Button severity="danger" 
-									size="small"
-									label="Open Dev Tools"
-									@click="onOpenDevTools($event)" 
-									outlined
-							/>
-						</div>
-					</Fieldset>
-				</div>
-
-				<div class="settings-form-buttons">
-					<Button type="submit" label="Save" outlined/>
-				</div>
-
-			</Form>
-
+			<SettingsForm :settings="settings" @onSaveSettings="onSaveSettings"/>
 		</Drawer>
 	</div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, toRaw } from 'vue'
+import { onMounted, ref } from 'vue'
+import { useToast } from 'primevue/usetoast'
 import FileDrop from './components/FileDrop.vue'
 import ProcessFiles from './components/ProcessFiles.vue'
 import Progress from './components/Progress.vue'
 import CheckList from './components/CheckList.vue'
 import Toast from 'primevue/toast'
-import { useToast } from 'primevue/usetoast';
-import { useConfirm } from 'primevue/useconfirm'
-import { Form } from '@primevue/forms'
+import SettingsForm from './components/SettingsForm.vue'
 
 const toast = useToast();
-const confirm = useConfirm();
 const isProcessing = ref(false)
 const progress = ref(0)
 const status = ref('Select a file to import')
@@ -190,39 +156,13 @@ function openSettings() {
 	backupSettings = JSON.parse(JSON.stringify(settings.value))
 	settingsVisible.value = true
 }
-function onSaveSettings() {
-	backupSettings = JSON.parse(JSON.stringify(settings.value))
-	window.electronAPI.saveSettings(toRaw(settings.value))
-}
 function onCloseSettings() {
 	settings.value = backupSettings
 }
-function formatLabel(key: string) {
-  return key
-    .replace(/([A-Z])/g, ' $1') // add space before capital letters
-    .replace(/^./, str => str.toUpperCase()) // capitalize first letter
+function onSaveSettings(settings: any) {
+	backupSettings = settings
 }
 
-function onOpenDevTools(event: any) {
-	confirm.require({
-		target: event.currentTarget,
-		message: "** WARNING! ** Use dev tools ONLY for DEBUGGING. Do NOT change any DOM elements, settings, configurations, network calls, etc. Any modifications made may break functionality or cause unwanted behavior. You have been warned.",
-		icon: 'pi pi-exclamation-triangle',
-		rejectProps: {
-			label: 'I\'m scared',
-			severity: 'primary',
-		},
-		acceptProps: {
-			label: 'Ok',
-			severity: 'danger',
-			outlined: true
-		},
-		accept: () => {
-			window.electronAPI.openDevTools()
-		}
-	})
-	
-}
 function minimize() {
 	window.electronAPI.minimize()
 }
@@ -336,65 +276,5 @@ function shouldProcessBeDisabled() {
 	.component-border--primary {
 		border-radius: 10px;
 		box-shadow: 0 0 0 1px var(--p-primary-500);
-	}
-
-	.settings-form {
-		display: flex;
-		flex-direction: column;
-		justify-content: flex-start;
-
-		width: 100%;
-		height: 100%;
-
-		.settings-content {
-			flex: 1; 
-			overflow-y: auto; 
-			display: flex;
-			flex-direction: column;
-
-			gap: 10px;
-		}
-		.settings-form-buttons {
-			width: 100%;
-
-			flex-shrink: 0;
-			position: sticky;
-			bottom: 0;
-
-			> Button {
-				width: 100%;
-			}
-		}
-		.should-save {
-			width: 100%;
-
-			display: grid;
-  			grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-
-			gap: 10px;
-
-			padding: 5px;
-		}
-		.checkbox-item {
-			display: flex;
-			gap: 5px;
-
-			> label {
-				text-wrap: nowrap;
-				font-size: 12px;
-			}
-		}
-		.other-settings {
-			width: 100%;
-
-			display: flex;
-			justify-content: center;
-
-			padding: 10px;
-
-			> Button {
-				width: 100%;
-			}
-		}
 	}
 </style>
