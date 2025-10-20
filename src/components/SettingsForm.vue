@@ -13,7 +13,7 @@
                 </div>
             </Fieldset>	
 
-             <Fieldset legend="Shopify Integration" toggleable>
+             <Fieldset legend="Shopify Integration" toggleable :collapsed="true">
                 <div class="shopify-integration">
 
                     <div class="description">
@@ -40,7 +40,7 @@
                         <ButtonGroup>
                             <Button severity="secondary" 
                                     size="small"
-                                    icon="pi pi-lock"
+                                    icon="pi pi-lock-open"
                                     outlined
                             />
                             <Button severity="secondary"

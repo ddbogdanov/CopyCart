@@ -1,6 +1,13 @@
 <template>
     <div class="header">
-        <span id="app-version">Copy Cart v{{ version }}</span>
+        <div class="app-info-container">
+            <img id="app-logo" :src="icon"/>
+
+            <div class="app-info">
+                <p id="name">Copy Cart</p>
+                <p id="version">v{{ version }}</p>
+            </div>
+        </div>
 
         <ButtonGroup class="window-controls">
             <Button severity="secondary" icon="pi pi-cog" variant="text" size="small" @click="emit('openSettings')" id="settings"/>
@@ -14,6 +21,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import icon from '../../build/icons/icon.png'
 
 const emit = defineEmits(['openSettings'])
 const version = ref(__APP_VERSION__)
@@ -58,16 +66,33 @@ function exit() {
 			}
 		}
 
-		> #app-version {
-			position: relative;
-			top: 1px;             
-			left: 5px;              
-			opacity: 0.6;
+		.app-info-container {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+
 			pointer-events: none;
 			user-select: none;    
-			z-index: 9999;
 
-			font-size: 12px;
+            .app-info {
+                display: flex;
+                flex-direction: column;
+
+                text-align: left;
+                #name {
+                    margin: 0;
+                }
+                #version {
+                    margin: 0;
+
+                    font-size: 10px;
+                    color: var(--p-surface-400)
+                }
+            }
+            #app-logo {
+                width: 25px;
+                height: 25px;
+            }
 		}
 	}
 </style>
