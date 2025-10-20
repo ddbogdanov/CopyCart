@@ -4,10 +4,10 @@ import { fileURLToPath } from 'url'
 import { IoService } from './services/IoService.ts'
 import path from "path"
 import { updateElectronApp } from 'update-electron-app'
+import electronSquirrelStartup from 'electron-squirrel-startup'
 
-// TODO: TEST THIS?? BUT HOW?!
-if(handleSquirrelEvent()) {
-  process.exit(0)
+if (electronSquirrelStartup) {
+    app.quit();
 }
 
 const __filename = fileURLToPath(import.meta.url)
@@ -92,36 +92,4 @@ function createWindow() {
   else {
 	mainWindow.loadURL('http://localhost:5173')
   }
-}
-
-function handleSquirrelEvent() {
-	if (process.platform !== 'win32') {
-    	return false;
-	}
-
-	var squirrelCommand = process.argv[1];
-	switch (squirrelCommand) {
-		case '--squirrel-install':
-			console.log('Squirrel Event: Install')
-			app.quit()
-			return true
-
-		case '--squirrel-updated':
-			console.log('Squirrel Event: Updated')
-			app.quit()
-			return true
-
-		case '--squirrel-uninstall':
-			console.log('Squirrel Event: Uninstall')
-			app.quit()
-			return true
-
-		case '--squirrel-obsolete':
-			console.log('Squirrel Event: Obsolete')
-			app.quit()
-			return true
-
-		default:
-			return false
-  	}
 }

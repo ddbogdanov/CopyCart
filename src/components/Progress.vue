@@ -38,6 +38,7 @@ const props = defineProps(['currentFile', 'isLoading', 'progress', 'status'])
 			font-size: 12px;
 		}
 		.icons {
+			position: relative;
 			display: flex;
 			justify-content: space-between;
 

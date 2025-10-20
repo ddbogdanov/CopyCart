@@ -390,6 +390,8 @@ function shouldProcessBeDisabled() {
 			display: flex;
 			justify-content: center;
 
+			padding: 10px;
+
 			> Button {
 				width: 100%;
 			}
