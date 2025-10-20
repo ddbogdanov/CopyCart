@@ -56,7 +56,7 @@
 			</div>
 		</div>
 
-		<Drawer header="Settings" class="settings-drawer" position="right" v-model:visible="settingsVisible" @hide="onCloseSettings">
+		<Drawer header="Settings" class="settings-drawer" position="right" v-model:visible="settingsVisible" @hide="onCloseSettings" style="width: 50vw;">
 			<SettingsForm :settings="settings" @onSaveSettings="onSaveSettings"/>
 		</Drawer>
 	</div>
@@ -214,6 +214,10 @@ function shouldProcessBeDisabled() {
 		border-radius: 5px;
 
 		overflow: hidden;
+	}
+
+	.settings-drawer {
+		width: 50vw;
 	}
 
 	.component-border--primary {

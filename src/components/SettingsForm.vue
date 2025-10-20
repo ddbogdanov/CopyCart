@@ -16,17 +16,56 @@
              <Fieldset legend="Shopify Integration" toggleable>
                 <div class="shopify-integration">
 
+                    <div class="description">
+                        <i class="pi pi-exclamation-triangle"/>
+
+                        <p class="description-text">
+                            <b>Test Connection</b> must be successful to enable this feature.
+                        </p>
+                    </div>
+
+                    <div class="api-info">
+                        <FloatLabel>
+                            <InputText id="apiUrl" size="small" fluid/>
+                            <label for="apiUrl">Shopify URL</label>
+                        </FloatLabel>
+
+                        <FloatLabel>
+                            <Password id="apiKey" size="small" :feedback="false" toggleMask fluid/>
+                            <label for="apiUrl">API Key</label>
+                        </FloatLabel>
+                    </div>
+                    
+                    <div class="api-test">
+                        <ButtonGroup>
+                            <Button severity="secondary" 
+                                    size="small"
+                                    icon="pi pi-lock"
+                                    outlined
+                            />
+                            <Button severity="secondary"
+                                    size="small"
+                                    label="Test Connection"
+                                    outlined
+                            />
+                        </ButtonGroup>
+                        <!-- <div class="api-test-status">
+                            <i :class="apiTestIcon" :style="{ color: apiTestColor }" v-tooltip="apiTestStatus"/>
+                        </div> -->
+                    </div>
                 </div>
              </Fieldset>
 
             <Fieldset legend="Other" toggleable :collapsed="true">
                 <div class="other-settings">
+
                     <Button severity="danger" 
                             size="small"
                             label="Open Dev Tools"
                             @click="onOpenDevTools($event)" 
                             outlined
                     />
+
                 </div>
             </Fieldset>
         </div>
@@ -48,6 +87,11 @@ import { useConfirm } from 'primevue/useconfirm'
 const confirm = useConfirm();
 const props = defineProps(['settings', 'backupSettings'])
 const emit = defineEmits(['onSaveSettings'])
+
+// pi-times pi-minus and pi-check
+const apiTestIcon = 'pi pi-minus'
+const apiTestColor = 'var(--p-surface-500)'
+const apiTestStatus = 'Test Connection'
 
 function onSaveSettings() {
 	emit('onSaveSettings', JSON.parse(JSON.stringify(props.settings)))
@@ -90,6 +134,8 @@ function onOpenDevTools(event: any) {
 		width: 100%;
 		height: 100%;
 
+        padding-bottom: 10px;
+
 		.settings-content {
 			flex: 1; 
 			overflow-y: auto; 
@@ -97,6 +143,10 @@ function onOpenDevTools(event: any) {
 			flex-direction: column;
 
 			gap: 10px;
+
+            Fieldset {
+                padding-top: 10px;
+            }
 		}
 		.settings-form-buttons {
 			width: 100%;
@@ -114,10 +164,9 @@ function onOpenDevTools(event: any) {
 
 			display: grid;
   			grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-
 			gap: 10px;
 
-			padding: 5px;
+            color: var(--p-surface-400);
 		}
 		.checkbox-item {
 			display: flex;
@@ -128,13 +177,50 @@ function onOpenDevTools(event: any) {
 				font-size: 12px;
 			}
 		}
+
+        .shopify-integration {
+            width: 100%;
+
+            .description {
+                width: 100%;
+
+                display: inline-flex;
+                align-items: center;
+                gap: 10px;
+
+                > i {
+                    color: var(--p-surface-400);
+                    font-size: 2rem;
+                }
+                > p { 
+                    margin: 0;
+
+                    color: var(--p-surface-400);
+                    font-size: 14px;
+                }
+            }
+            .api-info {
+                display: flex;
+                flex-direction: column;
+                gap: 30px;
+
+                margin-top: 50px;
+                margin-bottom: 50px;
+            }
+            .api-test {
+                display: flex;
+                justify-content: flex-end;
+                align-items: center;
+                gap: 5px;
+
+                margin-top: 30px;
+            }
+        }
 		.other-settings {
 			width: 100%;
 
 			display: flex;
 			justify-content: center;
-
-			padding: 10px;
 
 			> Button {
 				width: 100%;

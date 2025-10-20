@@ -3,21 +3,25 @@ const { FuseV1Options, FuseVersion } = require('@electron/fuses');
 
 module.exports = {
   packagerConfig: {
-	dir: './out/electron',
-	asar: true,
+    dir: './out/electron',
+    asar: true,
     executableName: "CopyCart",
     icon: "build/icons/icon.ico",
-	extraResources: [
+    extraResources: [
       {
         from: 'dist',
         to: 'dist',
         filter: ['**/*']
+      },
+      {
+        from: "build/icons/icon.ico",
+        to: 'icon.ico'
       }
-  	],
-	extraResource: ['dist']
+    ],
+    extraResource: ['dist']
   },
   rebuildConfig: {},
-   makers: [
+  makers: [
     {
       name: "@electron-forge/maker-squirrel",
       platforms: ["win32"],
@@ -31,7 +35,7 @@ module.exports = {
         loadingGif: "build/install.gif",
         noMsi: true,
       },
-	},
+	  },
     {
       name: "@electron-forge/maker-zip",
       platforms: ["win32"],

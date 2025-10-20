@@ -11,7 +11,8 @@
     "build:renderer": "vite build",
     "build": "npm run build:electron && npm run build:renderer",
     "package": "npm run build && electron-forge package",
-    "make": "npm run build && electron-forge make"
+    "make": "npm run build && electron-forge make",
+    "release": "npx electron-forge make --platform win32 --publish always --arch x64"
   },
   "main": "electron/main.ts",
   "dependencies": {

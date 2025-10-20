@@ -17,6 +17,10 @@ import ButtonGroup from 'primevue/buttongroup'
 import Drawer from 'primevue/drawer'
 import Checkbox from 'primevue/checkbox'
 import Fieldset from 'primevue/fieldset'
+import Password from 'primevue/password'
+import InputText from 'primevue/inputtext'
+import FloatLabel from 'primevue/floatlabel'
+import Divider from 'primevue/divider'
 
 const app = createApp(App)
 
@@ -38,6 +42,10 @@ app.component('ButtonGroup', ButtonGroup)
 app.component('Drawer', Drawer)
 app.component('Checkbox', Checkbox)
 app.component('Fieldset', Fieldset)
+app.component('Password', Password)
+app.component('InputText', InputText)
+app.component('FloatLabel', FloatLabel)
+app.component('Divider', Divider)
 
 app.directive('tooltip', Tooltip)
 
@@ -54,4 +62,3 @@ app.mount('#app')
 //
 // 1. Filter Print Folder (destPath) based on conditions given by import file
 // 2. Deep search/multiple directory selection for print files
-// 		a. Additionally, directory hierarchy preservation on copy
