@@ -18,8 +18,10 @@
   "dependencies": {
     "@primeuix/themes": "^1.2.5",
     "@primevue/forms": "^4.4.1",
+    "@shopify/shopify-api": "^12.0.0",
     "csv-parser": "^3.2.0",
     "electron-squirrel-startup": "^1.0.1",
+    "graphql": "^16.11.0",
     "primeicons": "^7.0.0",
     "primevue": "^4.4.0",
     "update-electron-app": "^3.1.1",
