@@ -3,7 +3,7 @@
   "productName": "Copy Cart",
   "description": "Copy files using order import",
   "private": true,
-  "version": "1.4.5",
+  "version": "1.x.x_FEATURE",
   "type": "module",
   "scripts": {
     "dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",

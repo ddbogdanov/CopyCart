@@ -104,7 +104,6 @@ export class IoService {
 			if(fs.existsSync(this.settingsPath ?? '')) {
 				const settingsToRead = JSON.parse(fs.readFileSync(this.settingsPath, 'utf-8'))
 
-				console.log(settingsToRead)
 				this.settings = { ...this.settings, ...settingsToRead } // Overwrite defaults with values read from file
 
 				if(this.settings.imports) {
