@@ -16,7 +16,7 @@ export class IoService {
 		imports: '',
 		printFiles: '',
 		printFolder: '',
-		themeColor: '#34d399'
+		themeColor: '#10b981'
 	}
 
 	settingsPath: string = ''
@@ -104,6 +104,7 @@ export class IoService {
 			if(fs.existsSync(this.settingsPath ?? '')) {
 				const settingsToRead = JSON.parse(fs.readFileSync(this.settingsPath, 'utf-8'))
 
+				console.log(settingsToRead)
 				this.settings = { ...this.settings, ...settingsToRead } // Overwrite defaults with values read from file
 
 				if(this.settings.imports) {

@@ -24,6 +24,8 @@ import InputText from 'primevue/inputtext'
 import FloatLabel from 'primevue/floatlabel'
 import Divider from 'primevue/divider'
 import ColorPicker from 'primevue/colorpicker';
+import DataTable from 'primevue/datatable';
+import Column from 'primevue/column';
 
 
 const primaries = palette('#34d399')
@@ -58,6 +60,8 @@ app.component('InputText', InputText)
 app.component('FloatLabel', FloatLabel)
 app.component('Divider', Divider)
 app.component('ColorPicker', ColorPicker)
+app.component('DataTable', DataTable)
+app.component('Column', Column)
 
 app.directive('tooltip', Tooltip)
 

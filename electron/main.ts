@@ -67,14 +67,14 @@ ipcMain.handle('toggle-maximize', () => {
 	}
 })
 ipcMain.handle('exit', () => { mainWindow.close() })
-ipcMain.handle('save-settings', (_event: any, settings: Record<string, any>) => { ioService.saveSettings(settings, false) })
+ipcMain.handle('save-settings', (_event: any, settings: Record<string, any>) => { ioService.saveSettings(settings, false); })
 ipcMain.handle('open-dev-tools', () => { mainWindow.webContents.openDevTools() })
 
 // *** Util Methods ***
 function createWindow() {
 	mainWindow = new BrowserWindow({
-		width: 850,
-		height: 450,
+		width: 900,
+		height: 500,
 		frame: false,
 		webPreferences: {
 			preload: join(__dirname, 'preload.js'),

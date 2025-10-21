@@ -58,8 +58,45 @@
 
             <Fieldset legend="Theme" toggleable :collapsed="true">
                 <div class="theme">
-                    <ColorPicker v-model="colorSelection" format="hex" inline/>
-                    <Button severity="primary" label="Update Color" @click="onUpdateTheme" outlined/>
+
+                    <div class="presets">
+                        <DataTable :value="primaryColorPresets"
+                                    v-model:selection="presetColorSelection"
+                                    selectionMode="single"
+                                    size="small"
+                                    scrollable
+                                    scrollHeight="flex"
+                                    @rowSelect="onColorPresetsRowSelect"
+                        >
+                            <Column field="color"></Column>
+                            <Column field="hex" bodyStyle="text-align: -webkit-right;">
+                                <template #body="slotProps">
+                                    <div :style="{
+                                        width: '1rem',
+                                        height: '1rem',
+
+                                        border: '1px solid var(--p-surface-800)',
+                                        'border-radius': '5px',
+
+                                        'background-color': `#${slotProps.data.hex}`
+                                    }"></div>
+                                </template>
+                            </Column>
+                        </DataTable>
+                    </div>
+
+                    <div class="picker">
+                        <ColorPicker v-model="colorSelection" format="hex" inline/>
+                        <p>#{{ colorSelection.toUpperCase() }}</p>
+
+                        <div class="controls">
+                            <ButtonGroup>
+                                <Button severity="secondary" label="Reset" @click="onResetTheme" outlined/>
+                                <Button severity="info" label="Update Color" @click="onUpdateTheme" outlined/>
+                            </ButtonGroup>
+                        </div>
+                    </div>
+
                 </div>
             </Fieldset>
 
@@ -90,23 +127,31 @@
 import { ref, toRaw } from 'vue'
 import { Form } from '@primevue/forms'
 import { useConfirm } from 'primevue/useconfirm'
+import { primaryColorPresets } from '../models/ThemePresets'
 
 const confirm = useConfirm();
 const props = defineProps(['settings', 'backupSettings'])
 const emit = defineEmits(['onSaveSettings', 'onUpdateTheme'])
-const colorSelection = ref('34d399')
+const colorSelection = ref('10b981')
+const presetColorSelection = ref()
 
 // pi-times pi-minus and pi-check
 const apiTestIcon = 'pi pi-minus'
 const apiTestColor = 'var(--p-surface-500)'
 const apiTestStatus = 'Test Connection'
 
+function onColorPresetsRowSelect() {
+    colorSelection.value = presetColorSelection.value.hex
+    emit('onUpdateTheme', '#' + presetColorSelection.value.hex)
+}
+function onResetTheme() {
+    emit('onUpdateTheme', '#10b981')
+}
 function onUpdateTheme() {
     emit('onUpdateTheme', '#' + colorSelection.value)
 }
 function onSaveSettings() {
 	emit('onSaveSettings', JSON.parse(JSON.stringify(props.settings)))
-	window.electronAPI.saveSettings(toRaw(props.settings))
 }
 function formatLabel(key: string) {
   return key
@@ -189,8 +234,49 @@ function onOpenDevTools(event: any) {
 			}
 		}
         .theme {
+            width: 100%;
+            height: 250px;
+
             display: flex;
             justify-content: space-between;
+            gap: 10px;
+
+            .presets {
+                flex-grow: 1;
+                max-height: 100%;
+            }
+
+            .picker {
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+
+                .controls {
+                    width: 100%;
+
+                    display: flex;
+                    justify-content: flex-end;
+                    
+                    padding-top: 10px;
+
+                    :deep(.p-buttongroup) {
+                        width: 100%;
+                    }
+
+                    Button {
+                        flex-grow: 1;
+                    }
+                }
+
+                > p {
+                    margin: 0;
+
+                    color: var(--p-surface-400);
+                    font-size: 14px;
+                    text-align: right;
+                }
+            }
+
         }
         .shopify-integration {
             width: 100%;

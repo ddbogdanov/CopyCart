@@ -27,7 +27,7 @@
 				/>
 			</div>
 
-			<div class="info-container">
+			<div class="info-container component-border--secondary">
 				<Progress current-file="CurrentFile/OrderNumber.txt"
 						:progress="progress"	
 						:is-loading="isProcessing"
@@ -56,7 +56,7 @@
 			</div>
 		</div>
 
-		<Drawer header="Settings" class="settings-drawer" position="right" v-model:visible="settingsVisible" @hide="onCloseSettings" style="width: 50vw;">
+		<Drawer header="Settings" class="settings-drawer" position="right" v-model:visible="settingsVisible" @hide="onCloseSettings" style="width: 60vw;">
 			<SettingsForm :settings="settings" @onUpdateTheme="onUpdateTheme" @onSaveSettings="onSaveSettings"/>
 		</Drawer>
 	</div>
@@ -68,8 +68,8 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useToast } from 'primevue/usetoast'
-import { palette } from '@primeuix/themes';
-import { updatePrimaryPalette } from '@primeuix/themes';
+import { palette } from '@primeuix/themes'
+import { updatePrimaryPalette } from '@primeuix/themes'
 import FileDrop from './components/FileDrop.vue'
 import ProcessFiles from './components/ProcessFiles.vue'
 import Progress from './components/Progress.vue'
@@ -93,7 +93,7 @@ const settings = ref({
 	imports: '',
 	printFiles: '',
 	printFolder: '',
-	themeColor: '#34d399'
+	themeColor: '#10b981'
 })
 let backupSettings = {
 	shouldSave: {
@@ -104,7 +104,7 @@ let backupSettings = {
 	imports: '',
 	printFiles: '',
 	printFolder: '',
-	themeColor: '#34d399'
+	themeColor: '#10b981'
 }
 
 onMounted(() => {
@@ -134,6 +134,7 @@ onMounted(() => {
 	})
 	window.electronAPI.onSettingsUpdate((s) => {
 		settings.value = s
+		onUpdateTheme(s.themeColor ? s.themeColor : '#10b981')
 	})
 })
 
@@ -156,13 +157,11 @@ function onCloseSettings() {
 }
 function onSaveSettings(settings: any) {
 	backupSettings = settings
+	window.electronAPI.saveSettings(settings)
 }
 function onUpdateTheme(color: any) {
 	settings.value.themeColor = color
 	let primaries = palette(color)
-
-	console.log(color.value)
-	console.log(primaries['500'])
 
 	updatePrimaryPalette({
         50: primaries['50'],
@@ -235,9 +234,6 @@ function shouldProcessBeDisabled() {
 		justify-content: space-between;
 		gap: 10px;
 
-		border: 1px dashed var(--p-surface-500);
-		border-radius: 5px;
-
 		overflow: hidden;
 	}
 
@@ -248,5 +244,9 @@ function shouldProcessBeDisabled() {
 	.component-border--primary {
 		border-radius: 10px;
 		box-shadow: 0 0 0 1px var(--p-primary-500);
+	}
+	.component-border--secondary {
+		border-radius: 10px;
+		border: 1px dashed color-mix(in srgb, var(--p-primary-500), transparent 50%);
 	}
 </style>

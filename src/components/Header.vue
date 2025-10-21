@@ -49,7 +49,7 @@ function exit() {
 		height: 40px;
 		padding: 5px;
 
-		background: var(--p-primary-900);
+		background: var(--p-primary-700);
 
 		-webkit-app-region: drag;
 
@@ -58,6 +58,12 @@ function exit() {
 
 			:deep(.p-button.p-button-sm .p-button-icon) {
 				font-size: 12px !important; 
+			}
+            :deep(.p-button-secondary) {
+				color: var(--p-surface-900);
+			}
+            :deep(.p-button-danger) {
+				color: var(--p-red-500);
 			}
 			> Button {
 				padding: 12px;
@@ -81,12 +87,13 @@ function exit() {
                 text-align: left;
                 #name {
                     margin: 0;
+                    color: var(--p-surface-900)
                 }
                 #version {
                     margin: 0;
 
                     font-size: 10px;
-                    color: var(--p-surface-400)
+                    color: var(--p-surface-900)
                 }
             }
             #app-logo {

@@ -1,0 +1,20 @@
+// TODO: Presets for base color. 
+export const primaryColorPresets = [
+    { color: 'Emerald', hex: '10b981' }, 
+    { color: 'Green', hex: '22c55e' }, 
+    { color: 'Lime', hex: '84cc16' },
+    { color: 'Red', hex: 'ef4444' },
+    { color: 'Orange', hex: 'f97316' },
+    { color: 'Amber', hex: 'f59e0b' },
+    { color: 'Yellow', hex: 'eab308' },
+    { color: 'Teal', hex: '14b8a6' },
+    { color: 'Cyan', hex: '06b6d4' },
+    { color: 'Sky', hex: '0ea5e9' },
+    { color: 'Blue', hex: '3b82f6' },
+    { color: 'Indigo', hex: '6366f1' },
+    { color: 'Violet', hex: '8b5cf6' },
+    { color: 'Purple', hex: 'a855f7' },
+    { color: 'Fuchsia', hex: 'd946ef' },
+    { color: 'Pink', hex: 'ec4899' },
+    { color: 'Rose', hex: 'f43f5e' },
+]
