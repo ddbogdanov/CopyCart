@@ -54,6 +54,8 @@
 						class="component-border--primary"
 				/>
 			</div>
+
+			<Button label="Fetch Orders" @click="onFetchOrders"/>
 		</div>
 
 		<Drawer header="Settings" class="settings-drawer" position="right" v-model:visible="settingsVisible" @hide="onCloseSettings" style="width: 60vw;">
@@ -180,6 +182,10 @@ function onUpdateTheme(color: any) {
 
 function shouldProcessBeDisabled() {
 	return !(settings.value.imports && settings.value.printFolder && settings.value.printFiles)
+}
+
+function onFetchOrders() {
+	window.electronAPI.fetchOrders()
 }
 
 </script>

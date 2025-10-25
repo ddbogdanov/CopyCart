@@ -5,14 +5,23 @@ import { IoService } from './services/IoService.ts'
 import path from "path"
 import { updateElectronApp } from 'update-electron-app'
 import electronSquirrelStartup from 'electron-squirrel-startup'
+import { ShopifyService } from './services/ShopifyService.ts'
+import { AuthService } from './services/ShopifyAuthService.ts'
+import { nodeAdapterInitialized } from '@shopify/shopify-api/adapters/node'
+import Store from 'electron-store'
+import { Session } from '@shopify/shopify-api'
 
-if (electronSquirrelStartup) {
+if (electronSquirrelStartup || !nodeAdapterInitialized) {
     app.quit();
 }
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 const ioService = new IoService()
+const authService = new AuthService()
+const shopifyService = new ShopifyService()
+const store = new Store()
+
 let mainWindow: BrowserWindow
 
 app.setName('Copy Cart')
@@ -21,12 +30,16 @@ app.whenReady().then(() => {
 
 	updateElectronApp({ notifyUser: true })
 
+	startShopifyAuthServer()
+
 	mainWindow.webContents.on('did-finish-load', () => {
 		ioService.loadSettings()
 	})
 })
 
 app.on('window-all-closed', () => {
+	authService.stopOAuthServer()
+
 	if (process.platform !== 'darwin') app.quit()
 })
 app.on('before-quit', () => {
@@ -70,6 +83,14 @@ ipcMain.handle('exit', () => { mainWindow.close() })
 ipcMain.handle('save-settings', (_event: any, settings: Record<string, any>) => { ioService.saveSettings(settings, false); })
 ipcMain.handle('open-dev-tools', () => { mainWindow.webContents.openDevTools() })
 
+// --- Shopify OAuth ---
+ipcMain.handle('connect-shopify', (_event: any, shopDomain: string) => { 
+	authService.openShopifyAuthWindow(shopDomain)
+})
+ipcMain.handle('fetch-orders', () => {
+	console.log(shopifyService.fetchOrders())
+})
+
 // *** Util Methods ***
 function createWindow() {
 	mainWindow = new BrowserWindow({
@@ -94,4 +115,12 @@ function createWindow() {
   	else {
 		mainWindow.loadURL('http://localhost:5173')
   	}
+}
+
+function startShopifyAuthServer() {
+	authService.startOAuthServer((session: Session) => {
+		store.set("shopify.shop", session.shop)
+		store.set("shopify.token", session.accessToken)
+		shopifyService.setSession(session)
+	})
 }

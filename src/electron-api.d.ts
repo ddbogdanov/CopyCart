@@ -9,6 +9,8 @@ export interface ElectronAPI {
   exit: () => void
   saveSettings: (settings: any) => Promise<boolean>
   openDevTools: () => void
+  connectShopify: (shopDomain: string) => void
+  fetchOrders: () => void
 
   onLoadingStateUpdate: (callback: (isLoading: boolean, progress: number, status: string) => void) => void
   onToast: (callback: (message: string) => void) => void

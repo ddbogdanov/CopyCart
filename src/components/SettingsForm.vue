@@ -26,8 +26,8 @@
 
                     <div class="api-info">
                         <FloatLabel>
-                            <InputText id="apiUrl" size="small" fluid/>
-                            <label for="apiUrl">Shopify URL</label>
+                            <InputText v-model="shopDomain" id="shopDomain" size="small" fluid/>
+                            <label for="shopDomain">Shopify Domain</label>
                         </FloatLabel>
 
                         <FloatLabel>
@@ -47,6 +47,7 @@
                                     size="small"
                                     label="Test Connection"
                                     outlined
+                                    @click="onTestConnection"
                             />
                         </ButtonGroup>
                         <!-- <div class="api-test-status">
@@ -124,7 +125,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, toRaw } from 'vue'
+import { ref } from 'vue'
 import { Form } from '@primevue/forms'
 import { useConfirm } from 'primevue/useconfirm'
 import { primaryColorPresets } from '../models/ThemePresets'
@@ -139,6 +140,7 @@ const presetColorSelection = ref()
 const apiTestIcon = 'pi pi-minus'
 const apiTestColor = 'var(--p-surface-500)'
 const apiTestStatus = 'Test Connection'
+const shopDomain = ref('thedrive-test-store.myshopify.com')
 
 function onColorPresetsRowSelect() {
     colorSelection.value = presetColorSelection.value.hex
@@ -177,7 +179,10 @@ function onOpenDevTools(event: any) {
 			window.electronAPI.openDevTools()
 		}
 	})
-	
+}
+
+function onTestConnection() {
+	window.electronAPI.connectShopify(shopDomain.value)
 }
 </script>
 
