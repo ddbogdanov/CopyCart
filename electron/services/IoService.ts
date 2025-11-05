@@ -149,27 +149,40 @@ export class IoService {
 
 			this.importCache = []
 			const lastBillingByOrder = new Map<string, string>()
+			const lastPaymentMethodByOrder = new Map<string, string>()
 
 			for (const row of rows) {
 				const name = row['Name']?.replace('#', '')
 				const sku = row['Lineitem sku']?.toLowerCase()
 				const quantity = row['Lineitem quantity']
 				const billingName = row['Billing Name']?.trim()
+				const paymentMethod = row['Payment Method']
 
 				if (!name) continue
 
+				// TODO: Condense resolutions
 				let resolvedBilling = billingName
+				let resolvedPaymentMethod = paymentMethod
+
 				if (billingName) {
 					lastBillingByOrder.set(name, billingName)
-				} else if (lastBillingByOrder.has(name)) {
+				} 
+				else if (lastBillingByOrder.has(name)) {
 					resolvedBilling = lastBillingByOrder.get(name)!
+				}
+				if(resolvedPaymentMethod) {
+					lastPaymentMethodByOrder.set(name, paymentMethod)
+				}
+				else if(lastPaymentMethodByOrder.has(name)) {
+					resolvedPaymentMethod = lastPaymentMethodByOrder.get(name)!
 				}
 
 				this.importCache.push({
 					name: name,
 					sku,
 					quantity,
-					billingName: resolvedBilling ?? ''
+					billingName: resolvedBilling ?? '',
+					paymentMethod: resolvedPaymentMethod ?? ''
 				})
 			}
 		}
@@ -209,7 +222,7 @@ export class IoService {
 			let destPath = ''
 
 			for(let i = 0; i < order.quantity; i++) {
-				const destPath = path.join(this.settings.printFolder, sanitizePath(`${orderName}-${order.billingName}-${order.sku}-${i}-${index}${ext}`))
+				const destPath = path.join(this.settings.printFolder, sanitizePath(`${orderName}-${order.billingName}-${order.sku}-${order.paymentMethod.toLowerCase().replace(' ', '_')}-${i}-${index}${ext}`))
 
 				console.log(`Copying: ${matchedOrder} --to--> ${destPath}`)
 				copyPromises.push(fs.promises.copyFile(matchedOrder, destPath))
