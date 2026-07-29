@@ -1,5 +1,6 @@
 import { app, BrowserWindow } from 'electron'
 import type { FileFilter } from 'electron'
+import { DateTime } from "luxon";
 import fs from "fs"
 import csv from "csv-parser"
 import path from "path"
@@ -150,6 +151,7 @@ export class IoService {
 			this.importCache = []
 			const lastBillingByOrder = new Map<string, string>()
 			const lastPaymentMethodByOrder = new Map<string, string>()
+			const lastPaidDateByOrder = new Map<string, string>()
 
 			for (const row of rows) {
 				const name = row['Name']?.replace('#', '')
@@ -157,12 +159,14 @@ export class IoService {
 				const quantity = row['Lineitem quantity']
 				const billingName = row['Billing Name']?.trim()
 				const paymentMethod = row['Payment Method']
+				const paidDate = row['Paid at']
 
 				if (!name) continue
 
 				// TODO: Condense resolutions
 				let resolvedBilling = billingName
 				let resolvedPaymentMethod = paymentMethod
+				let resolvedPaidDate = paidDate
 
 				if (billingName) {
 					lastBillingByOrder.set(name, billingName)
@@ -176,13 +180,20 @@ export class IoService {
 				else if(lastPaymentMethodByOrder.has(name)) {
 					resolvedPaymentMethod = lastPaymentMethodByOrder.get(name)!
 				}
+				if(paidDate) {
+					lastPaidDateByOrder.set(name, paidDate)
+				}
+				else if(lastPaidDateByOrder.has(name)) {
+					resolvedPaidDate = lastPaidDateByOrder.get(name)!
+				}
 
 				this.importCache.push({
 					name: name,
 					sku,
 					quantity,
 					billingName: resolvedBilling ?? '',
-					paymentMethod: resolvedPaymentMethod ?? ''
+					paymentMethod: resolvedPaymentMethod ?? '',
+					paidDate: DateTime.fromFormat(resolvedPaidDate?.trim(), "yyyy-MM-dd HH:mm:ss ZZZ").toFormat("yyyyLLdd") ?? '',
 				})
 			}
 		}
@@ -222,7 +233,7 @@ export class IoService {
 			let destPath = ''
 
 			for(let i = 0; i < order.quantity; i++) {
-				const destPath = path.join(this.settings.printFolder, sanitizePath(`${orderName}-${order.billingName}-${order.sku}-${order.paymentMethod.toLowerCase().replace(' ', '_')}-${i}-${index}${ext}`))
+				const destPath = path.join(this.settings.printFolder, sanitizePath(`${orderName}-${order.billingName}-${order.sku}-${order.paidDate}-${order.paymentMethod.toLowerCase().replace(' ', '_')}-${i}-${index}${ext}`))
 
 				console.log(`Copying: ${matchedOrder} --to--> ${destPath}`)
 				copyPromises.push(fs.promises.copyFile(matchedOrder, destPath))
