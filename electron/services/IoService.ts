@@ -1,6 +1,5 @@
 import { app, BrowserWindow } from 'electron'
 import type { FileFilter } from 'electron'
-import { DateTime } from "luxon";
 import fs from "fs"
 import csv from "csv-parser"
 import path from "path"
@@ -193,7 +192,7 @@ export class IoService {
 					quantity,
 					billingName: resolvedBilling ?? '',
 					paymentMethod: resolvedPaymentMethod ?? '',
-					paidDate: DateTime.fromFormat(resolvedPaidDate?.trim(), "yyyy-MM-dd HH:mm:ss ZZZ").toFormat("yyyyLLdd") ?? '',
+					paidDate: resolvedPaidDate ?? '',
 				})
 			}
 		}
