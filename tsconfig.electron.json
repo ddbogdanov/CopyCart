@@ -2,12 +2,14 @@
   "extends": "./tsconfig.node.json",
   "compilerOptions": {
     "outDir": "out/electron",
-    "rootDir": "electron",
+    // No "rootDir" — shared/ intentionally lives outside electron/; this config
+    // is type-check only, packaging layout is owned by the build step.
     "module": "ESNext",
     "target": "ES2020",
     "sourceMap": true,
     "esModuleInterop": true,
-	"moduleResolution": "node"
+	"moduleResolution": "bundler",
+	"allowJs": true
   },
-  "include": ["electron/**/*.ts"]
+  "include": ["electron/**/*.ts", "electron/**/*.js", "shared/**/*.ts"]
 }

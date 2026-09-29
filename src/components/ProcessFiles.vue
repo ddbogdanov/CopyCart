@@ -1,6 +1,6 @@
 <template>
 <div class="process-files">
-	<Button label="Process Files" icon="pi pi-arrow-right" icon-pos="right" severity="contrast" variant="outlined" rounded @click="processFiles($event)" :disabled="props.isDisabled"/>
+	<Button label="Process Files" icon="pi pi-arrow-right" icon-pos="right" severity="contrast" variant="outlined" rounded @click="processFiles" :disabled="props.isDisabled"/>
 </div>
 
 <ConfirmPopup group="confirmProcessFiles"/>
@@ -9,6 +9,7 @@
 <script lang="ts" setup>
 import { ConfirmPopup } from "primevue";
 import { useConfirm } from "primevue/useconfirm";
+import { ipc } from "../ipc";
 
 const props = defineProps(['isDisabled'])
 
@@ -28,7 +29,7 @@ function processFiles() {
 }
 
 function onAccept() {
-	window.electronAPI.processFiles()
+	ipc.processFiles()
 }
 function onReject() {
 	console.log('Process files prompt rejected')
