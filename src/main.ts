@@ -2,12 +2,16 @@ import { createApp } from 'vue'
 import './style.scss'
 import App from './App.vue'
 
+window.addEventListener('dragover', (event) => event.preventDefault())
+window.addEventListener('drop', (event) => event.preventDefault())
+
 // PrimeVue Imports
 import PrimeVue from 'primevue/config'
 import Aura from '@primeuix/themes/aura'
 
 // PrimeVue Components
 import Button from 'primevue/button'
+import ToggleButton from 'primevue/togglebutton'
 import ProgressBar from 'primevue/progressbar'
 import Tooltip from 'primevue/tooltip'
 import ConfirmPopup from 'primevue/confirmpopup'
@@ -17,9 +21,12 @@ import ButtonGroup from 'primevue/buttongroup'
 import Drawer from 'primevue/drawer'
 import Checkbox from 'primevue/checkbox'
 import Fieldset from 'primevue/fieldset'
+import ColorPicker from 'primevue/colorpicker'
+import DataTable from 'primevue/datatable'
+import Column from 'primevue/column'
 import { definePreset } from '@primeuix/themes'
 
-// TODO: user selectable themes
+// Default preset — the primary palette is replaced at runtime from saved settings (updatePrimaryPalette)
 const stylePreset = definePreset(Aura, {
     semantic: {
         primary: {
@@ -70,23 +77,23 @@ app.use(ConfirmationService)
 app.use(ToastService)
 
 app.component('Button', Button)
+app.component('ToggleButton', ToggleButton)
 app.component('ProgressBar', ProgressBar)
 app.component('ConfirmPopup', ConfirmPopup)
 app.component('ButtonGroup', ButtonGroup)
 app.component('Drawer', Drawer)
 app.component('Checkbox', Checkbox)
 app.component('Fieldset', Fieldset)
+app.component('ColorPicker', ColorPicker)
+app.component('DataTable', DataTable)
+app.component('Column', Column)
 
 app.directive('tooltip', Tooltip)
 
 app.mount('#app')
 
-// FIRST: npm run build
-// THEN: Build/Make Command: npx electron-forge make --platform win32 --arch x64
-// ^ to publish add --publish always
-// npx electron-forge make --platform win32 --publish always --arch x64
-//
-// SHA Hash for latest.yml:    node -e "console.log(require('crypto').createHash('sha512').update(require('fs').readFileSync('CopyCartInstaller.exe')).digest('base64'))"
+// Release: npm run make:nsis     — builds installer + latest.yml into release/
+//          npm run publish:nsis  — same, plus a draft GitHub release (needs GH_TOKEN)
 
 // TODO:
 //

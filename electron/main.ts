@@ -1,144 +1,153 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron'
+import { execFileSync } from 'node:child_process'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
-import { IoService } from './services/IoService.ts'
+import { RendererEvents } from './services/RendererEvents.ts'
+import { SettingsService } from './services/SettingsService.ts'
+import { ImportService } from './services/ImportService.ts'
+import { FileCopyService } from './services/FileCopyService.ts'
+import { UpdateService } from './services/UpdateService.ts'
 import path from "path"
-import AutoUpdater from 'electron-updater'
+import type { IpcHandlers, OpenDialogRequest } from '../shared/ipc'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
-const ioService = new IoService()
-const autoUpdater = AutoUpdater.autoUpdater
+
+// Keep SettingsService initialization before app.setName()/whenReady(): the
+// settings file lives under app.getPath('userData'), which is resolved here.
+// Changing the order would move the settings location and orphan existing
+// user settings.
+const events = new RendererEvents()
+const settingsService = new SettingsService(events)
+const importService = new ImportService(settingsService, events)
+const fileCopyService = new FileCopyService(settingsService, importService, events)
+const updateService = new UpdateService()
 let mainWindow: BrowserWindow
 
-autoUpdater.logger
-
 app.setName('Copy Cart')
+
+// Dev-only heads-up: an ELEVATED process cannot receive file drag & drop from
+// non-elevated Explorer/Desktop (Windows UIPI) — the cursor shows a "no" sign
+// and no events ever arrive. `net session` only succeeds when elevated, so a
+// failure here means we're running normally.
+if (!app.isPackaged && process.platform === 'win32') {
+	try {
+		execFileSync('net', ['session'], { stdio: 'ignore', windowsHide: true })
+		console.warn('\u26a0 DEV WARNING: running ELEVATED (Administrator). Windows will block file drag & drop into this window — relaunch from a non-admin terminal (plain PowerShell / VS Code without "Run as administrator").')
+	}
+	catch {
+		// Expected path when non-elevated.
+	}
+}
+
 app.whenReady().then(() => {
 	createWindow()
 
-	autoUpdater.autoInstallOnAppQuit = false
-
-	// updateElectronApp({ 
-	// 	notifyUser: true 
-	// })
-	if(app.isPackaged) {
-		console.log("...Checking for updates...")
-		autoUpdater.setFeedURL({
-			provider: "github",
-			owner: "ddbogdanov",
-			repo: "CopyCart",
-		});
-		autoUpdater.checkForUpdates().catch((error: any) => console.log(error))
-	}
-	
-	autoUpdater.on('update-not-available', () => {
-		const choice = dialog.showMessageBoxSync(mainWindow, {
-			type: 'info',
-			title: 'Update Not Found',
-			message: 'No update',
-			buttons: ['Restart', 'Later'],
-		})
-		if (choice === 0) {
-			console.log('No update')
-		}
-	})
-	autoUpdater.on('update-available', () => {
-		const choice = dialog.showMessageBoxSync(mainWindow, {
-			type: 'info',
-			title: 'Update Available',
-			message: 'A new version of Copy Cart is available. Download it now?',
-			buttons: ['Download', 'Later'],
-		})
-		if (choice === 0) {
-			autoUpdater.downloadUpdate().catch((error: any) => console.log(error))
-		}
-	})
-	autoUpdater.on('update-downloaded', () => {
-		const choice = dialog.showMessageBoxSync(mainWindow, {
-			type: 'info',
-			title: 'Update Ready',
-			message: 'The update has been downloaded. Restart now to install?',
-			buttons: ['Restart', 'Later'],
-		})
-		if (choice === 0) {
-			autoUpdater.quitAndInstall()
-		}
-	})
-	autoUpdater.on('error', (message) => {
-		console.error('There was a problem updating the application')
-		console.error(message)
-	})
-
 	mainWindow.webContents.on('did-finish-load', () => {
-		ioService.loadSettings()
+		const settings = settingsService.load()
+		if (settings.imports.length > 0) importService.cacheFiles(settings.imports).catch((error) => console.error('Failed to restore import files:', error))
+
+		// Check on every launch; if an update is available the user is prompted
+		// before anything is downloaded (see UpdateService).
+		updateService.checkForUpdates()
 	})
 })
 
-// *** App Events ***
-app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit() })
+app.on('window-all-closed', () => {
+	if (process.platform !== 'darwin') app.quit()
+})
 app.on('before-quit', () => {
   if (mainWindow) {
-    if (ioService.saveSettings(undefined, true)) console.log('Settings saved on quit')
+    if (settingsService.save(undefined, true)) console.log('Settings saved on quit')
   }
 })
 
 // *** IPC Handlers ***
-ipcMain.handle("open-file-dialog", async (event, title, properties, filters) => {
-	event;
-  	const { filePaths } = await ioService.openFileDialog(dialog, title, properties, filters)
+// One typed registry for every renderer request — channels and payloads are
+// defined in the shared contract (shared/ipc.ts).
+const handlers: IpcHandlers = {
+	'open-file-dialog': async (request) => {
+		const filePaths = await openFileDialog(request)
+		if (filePaths.length === 0) return []
 
-  	if (title === 'Import Orders') ioService.cacheFile(filePaths[0])
-  	if (title === 'Select Print Files') ioService.setPrintFiles(filePaths[0])
-  	if (title === 'Select Print Folder') ioService.setPrintFolder(filePaths[0])
+		// Import Orders accumulate: new picks join the current selection and
+		// re-picked files collapse silently. The ✕ button resets everything.
+		if (request.kind === 'import-orders') importService.cacheFiles(settingsService.settings.imports.concat(filePaths))
+		if (request.kind === 'print-files') settingsService.setPrintFiles(filePaths[0])
+		if (request.kind === 'print-folder') settingsService.setPrintFolder(filePaths[0])
 
-  return filePaths[0]
-})
-
-ipcMain.handle("delete-cache", () => { ioService.deleteCache() })
-ipcMain.handle("delete-print-files", () => { ioService.deletePrintFiles() })
-ipcMain.handle("delete-print-folder", () => { ioService.deletePrintFolder() })
-ipcMain.handle('update-loading-state', (_event: any, isLoading: boolean, progress: number, status: string) => {
-	mainWindow.webContents.send('update:loading:state', { 'isLoading': isLoading, 'progress': progress, 'status': status })
-})
-ipcMain.handle('process-files', () => { ioService.processFiles() })
-ipcMain.handle('minimize', () => { mainWindow.minimize() })
-ipcMain.handle('toggle-maximize', () => {
-	if(mainWindow.isMaximized()) {
-		mainWindow.unmaximize()
-		mainWindow.webContents.send('window:maximize:update', { 'maximized': false })
-	}
-	else {
+		return filePaths
+	},
+	// Drops accumulate too — see the import-orders routing in 'open-file-dialog'.
+	'cache-import-files': (filePaths) => importService.cacheFiles(settingsService.settings.imports.concat(filePaths)),
+	'remove-import-file': (filePath) => importService.removeFile(filePath),
+	'delete-cache': () => { importService.deleteCache() },
+	'delete-print-files': () => { settingsService.deletePrintFiles() },
+	'delete-print-folder': () => { settingsService.deletePrintFolder() },
+	'process-files': () => fileCopyService.processFiles(),
+	'minimize': () => { mainWindow.minimize() },
+	'toggle-maximize': () => {
+		if(mainWindow.isMaximized()) {
+			mainWindow.unmaximize()
+			return false
+		}
 		mainWindow.maximize()
-		mainWindow.webContents.send('window:maximize:update', { 'maximized': true })
-	}
-})
-ipcMain.handle('exit', () => { mainWindow.close() })
-ipcMain.handle('save-settings', (_event: any, settings: Record<string, any>) => { ioService.saveSettings(settings, false) })
-ipcMain.handle('open-dev-tools', () => { mainWindow.webContents.openDevTools() })
+		return true
+	},
+	'exit': () => { mainWindow.close() },
+	'save-settings': (settings) => settingsService.save(settings, false),
+	'open-dev-tools': () => { mainWindow.webContents.openDevTools() },
+	'update-window:cancel': () => { updateService.cancelDownload() },
+	'update-window:close': () => { updateService.closeUpdateWindow() },
+}
+
+// Object.entries erases the per-channel signatures; the IpcHandlers type guarantees
+// each handler matches its channel, so the loose cast here is safe.
+for (const [channel, handler] of Object.entries(handlers)) {
+	ipcMain.handle(channel, (_event, ...args: unknown[]) => (handler as (...handlerArgs: any[]) => any)(...args))
+}
 
 // *** Util Methods ***
+// Window-scoped file dialog; the `kind`-based routing lives in the handler above.
+async function openFileDialog(request: OpenDialogRequest): Promise<string[]> {
+	if (!mainWindow) return []
+
+	const { filePaths } = await dialog.showOpenDialog(mainWindow, {
+		title: request.title,
+		buttonLabel: 'Upload',
+		properties: request.properties,
+		filters: request.filters
+	})
+
+	return filePaths
+}
+
 function createWindow() {
-  mainWindow = new BrowserWindow({
-    width: 850,
-    height: 450,
-	frame: false,
-    webPreferences: {
-      preload: join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-    },
-	title: 'Copy Cart',
-	icon: path.join(__dirname, "../build/icons/icon.png")
-  })
+	mainWindow = new BrowserWindow({
+		width: 900,
+		height: 500,
+		// The dashboard is designed for this size — don't allow shrinking
+		// below it, so panels are never squeezed into overflow.
+		minWidth: 900,
+		minHeight: 500,
+		frame: false,
+		webPreferences: {
+			preload: join(__dirname, 'preload.js'),
+			contextIsolation: true,
+			nodeIntegration: false,
+		},
+		title: 'Copy Cart',
+		icon: path.join(__dirname, "../build/icons/icon.png")
+	})
 
-  ioService.setMainWindow(mainWindow)
+	events.setMainWindow(mainWindow)
+	updateService.setMainWindow(mainWindow)
 
-  if(app.isPackaged) {
-	mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
-	mainWindow.setMenu(null)
-  }
-  else {
-	mainWindow.loadURL('http://localhost:5173')
-  }
+  	if(app.isPackaged) {
+		mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
+		mainWindow.setMenu(null)
+  	}
+  	else {
+		mainWindow.loadURL('http://localhost:5173')
+  	}
 }

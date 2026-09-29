@@ -1,50 +1,78 @@
-const { contextBridge, ipcRenderer } = require('electron');
+// @ts-check
+//
+// Preload bridge — exposes the typed `window.electronAPI` surface to the
+// renderer. Channel names and payloads are checked against the shared IPC
+// contract (shared/ipc.ts) at compile time; the exposed API shape is enforced
+// by the `ElectronApi` type below.
+const { contextBridge, ipcRenderer, webUtils } = require('electron')
 
-contextBridge.exposeInMainWorld('electronAPI', {
-  openFileDialog: (title, properties, filters) => ipcRenderer.invoke('open-file-dialog', title, properties, filters),
-  deleteCache: () => ipcRenderer.invoke('delete-cache'),
-  deletePrintFiles: () => ipcRenderer.invoke('delete-print-files'),
-  deletePrintFolder: () => ipcRenderer.invoke('delete-print-folder'),
-  processFiles: () => ipcRenderer.invoke('process-files'),
-  minimize: () => ipcRenderer.invoke('minimize'),
-  toggleMaximize: () => ipcRenderer.invoke('toggle-maximize'),
-  exit: () => ipcRenderer.invoke('exit'),
-  saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings),
-  openDevTools: () => ipcRenderer.invoke('open-dev-tools'),
+/** @typedef {import('../shared/ipc').ElectronApi} ElectronApi */
+/** @typedef {import('../shared/ipc').IpcRequests} IpcRequests */
+/** @typedef {import('../shared/ipc').IpcEvents} IpcEvents */
+/** @typedef {import('electron').IpcRendererEvent} IpcRendererEvent */
 
-  onPrintFilesUpdate: (callback) => {
-	ipcRenderer.on('print:files:update', (_event, update) => {
-		callback(update.isSelected, update.path)
-	})
-  },
-  onPrintFolderUpdate: (callback) => {
-	ipcRenderer.on('print:folder:update', (_event, update) => {
-		callback(update.isSelected, update.path)
-	})
-  },
-  onLoadingStateUpdate: (callback) => {
-	ipcRenderer.on('update:loading:state', (_event, update) => {
-		callback(update.isLoading, update.progress, update.status)
-	})
-  },
-  onToast: (callback) => {
-	ipcRenderer.on('toast', (_event, message) => {
-		callback(message)
-	})
-  },
-  onWindowMaximizeUpdate: (callback) => {
-	ipcRenderer.on('window:maximize:update', (_event, maximized) => {
-		callback(maximized.maximized)
-	})
-  },
-  onSettingsSaved: (callback) => {
-	ipcRenderer.on('settings:saved', (saved) => {
-		callback(saved)
-	})
-  },
-  onSettingsUpdate: (callback) => {
-	ipcRenderer.on('settings:update', (_event, settings) => {
-		callback(settings)
-	})
-  }
-});
+/**
+ * Typed wrapper around `ipcRenderer.invoke` — the channel literal is validated
+ * against the shared IPC contract.
+ * @template {keyof IpcRequests} K
+ * @param {K} channel
+ * @param {...any} args
+ * @returns {Promise<any>}
+ */
+function invoke(channel, ...args) {
+	return ipcRenderer.invoke(channel, ...args)
+}
+
+/**
+ * Subscribes to a main-process event, replacing any previous listener for the
+ * channel (component remounts during hot reload must not stack listeners).
+ * @template {keyof IpcEvents} K
+ * @param {K} channel
+ * @param {(event: IpcRendererEvent, payload: IpcEvents[K]) => void} callback
+ */
+function subscribe(channel, callback) {
+	ipcRenderer.removeAllListeners(channel)
+	ipcRenderer.on(channel, callback)
+}
+
+/** @type {ElectronApi} */
+const electronAPI = {
+	openFileDialog: (request) => invoke('open-file-dialog', request),
+	// `File` is a DOM type — the cast keeps @ts-check happy in the Node-typed
+	// electron project; webUtils expects the real File object at runtime.
+	getPathForFile: (file) => webUtils.getPathForFile(/** @type {any} */ (file)),
+	deleteCache: () => invoke('delete-cache'),
+	cacheImportFiles: (filePaths) => invoke('cache-import-files', filePaths),
+	removeImportFile: (filePath) => invoke('remove-import-file', filePath),
+	deletePrintFiles: () => invoke('delete-print-files'),
+	deletePrintFolder: () => invoke('delete-print-folder'),
+	processFiles: () => invoke('process-files'),
+	minimize: () => invoke('minimize'),
+	toggleMaximize: () => invoke('toggle-maximize'),
+	exit: () => invoke('exit'),
+	saveSettings: (settings) => invoke('save-settings', settings),
+	openDevTools: () => invoke('open-dev-tools'),
+
+	onLoadingStateUpdate: (callback) => {
+		subscribe('update:loading:state', (_event, update) => {
+			callback(update.isLoading, update.progress, update.status)
+		})
+	},
+	onSettingsUpdate: (callback) => {
+		subscribe('settings:update', (_event, settings) => {
+			callback(settings)
+		})
+	},
+	onToast: (callback) => {
+		subscribe('toast', (_event, message) => {
+			callback(message)
+		})
+	},
+	onImportStatus: (callback) => {
+		subscribe('import:status', (_event, status) => {
+			callback(status)
+		})
+	}
+}
+
+contextBridge.exposeInMainWorld('electronAPI', electronAPI)

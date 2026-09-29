@@ -33,6 +33,8 @@
   max-width: 100vw;
 
   border: 1px solid black;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 html, body {
@@ -40,4 +42,16 @@ html, body {
   padding:0;
   height:100%;
   background-color: var(--surface-900);
+
+  /* Desktop app shell — the window itself must never scroll. */
+  overflow: hidden;
+}
+
+/* PrimeVue caps tooltips at 12.5rem (~200px), which wraps short one-line
+   texts like the Import Orders hint. Widen the cap so those stay on a single
+   line; long file paths still wrap. These unlayered rules beat PrimeVue's
+   layered defaults. */
+.p-tooltip,
+.p-tooltip .p-tooltip-text {
+  max-width: 26rem;
 }

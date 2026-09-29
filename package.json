@@ -2,45 +2,41 @@
   "name": "copy-cart",
   "productName": "Copy Cart",
   "description": "Copy files using order import",
+  "author": "Dennis Bogdanov",
   "private": true,
-  "version": "1.0.500",
+  "version": "1.5.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "dev": "concurrently -k \"vite\" \"wait-on http://localhost:5173 && electron .\"",
     "build:electron": "tsc -p tsconfig.electron.json",
     "build:renderer": "vite build",
     "build": "npm run build:electron && npm run build:renderer",
-    "package": "npm run build && electron-forge package",
-    "make": "npm run build && electron-forge make"
+    "make:nsis": "npm run build && electron-builder --win --publish never",
+    "publish:nsis": "npm run build && electron-builder --win --publish always",
+    "verify:settings-migration": "electron scripts/verify-settings-migration.mjs",
+    "verify:updater": "electron scripts/verify-updater-imports.mjs",
+    "verify:import": "electron scripts/verify-multi-import.mjs"
   },
   "main": "electron/main.ts",
   "dependencies": {
     "@primeuix/themes": "^1.2.5",
     "@primevue/forms": "^4.4.1",
     "csv-parser": "^3.2.0",
-    "electron-squirrel-startup": "^1.0.1",
+    "electron-log": "^5.4.3",
+    "electron-store": "^11.0.2",
     "electron-updater": "^6.6.2",
     "primeicons": "^7.0.0",
     "primevue": "^4.4.0",
-    "update-electron-app": "^3.1.1",
     "vue": "^3.5.22"
   },
   "devDependencies": {
-    "@electron-forge/cli": "^7.10.0",
-    "@electron-forge/maker-deb": "^7.10.0",
-    "@electron-forge/maker-rpm": "^7.10.0",
-    "@electron-forge/maker-squirrel": "^7.10.0",
-    "@electron-forge/maker-zip": "^7.10.0",
-    "@electron-forge/plugin-auto-unpack-natives": "^7.10.0",
-    "@electron-forge/plugin-fuses": "^7.10.0",
-    "@electron/fuses": "^1.8.0",
     "@types/electron": "^1.4.38",
     "@types/node": "^24.6.0",
     "@vitejs/plugin-vue": "^6.0.1",
     "@vue/tsconfig": "^0.8.1",
     "concurrently": "^9.2.1",
     "electron": "^38.2.1",
-    "electron-log": "^5.4.3",
+    "electron-builder": "^26.15.3",
     "sass": "^1.93.2",
     "sass-loader": "^16.0.5",
     "typescript": "~5.9.3",
@@ -51,20 +47,36 @@
   "build": {
     "appId": "com.ddbogdanov.copycart",
     "productName": "Copy Cart",
-    "icon": "build/icon",
+    "artifactName": "CopyCart-Setup-${version}.${ext}",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "electron/**/*",
+      "shared/**/*",
+      "dist/**/*",
+      "package.json"
+    ],
     "win": {
       "target": [
-        "nsis",
-        "squirrel"
+        "nsis"
       ],
-      "icon": "build/icons/icon.ico"
+      "icon": "build/icons/icon.png"
     },
     "nsis": {
       "oneClick": false,
-      "perMachine": true,
+      "perMachine": false,
       "allowElevation": true,
       "allowToChangeInstallationDirectory": true
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "ddbogdanov",
+        "repo": "CopyCart"
+      }
+    ]
   },
   "repository": {
     "type": "git",

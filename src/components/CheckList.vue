@@ -4,11 +4,11 @@
 		<div class="check-list-item">
 			<div class="text-container">
 				<p>Imports</p>
-				<p class="file-path" v-if="!!props.imports">{{ importsPathTrimmed }}</p>
+				<p class="file-path" v-if="!!props.imports?.length">{{ importsLabel }}</p>
 			</div>
 
 			<div class="icon-container">
-				<i class="pi pi-file-check success-icon" v-if="props.imports"/>
+				<i class="pi pi-file-check success-icon" v-if="props.imports?.length"/>
 				<i class="pi pi-times" v-else/>
 			</div>
 		</div>
@@ -54,10 +54,15 @@ const printFolderPathTrimmed = computed(() => {
   const lastSegments = pathSegments.slice(-3)
   return '.../' + lastSegments.join('/')
 })
-const importsPathTrimmed = computed(() => {
-  const pathSegments = props.imports.split(/[/\\]/).filter(Boolean)
-  const lastSegments = pathSegments.slice(-3)
-  return '.../' + lastSegments.join('/')
+const importsLabel = computed(() => {
+  const files: string[] = props.imports ?? []
+  const first = files[0]
+  if (!first) return ''
+
+  const pathSegments = first.split(/[/\\]/).filter(Boolean)
+  if (files.length === 1) return '.../' + pathSegments.slice(-3).join('/')
+
+  return `${pathSegments[pathSegments.length - 1] ?? first}  +${files.length - 1} more`
 })
 </script>
 
