@@ -13,10 +13,6 @@ import type { IpcHandlers, OpenDialogRequest } from '../shared/ipc'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
-// Keep SettingsService initialization before app.setName()/whenReady(): the
-// settings file lives under app.getPath('userData'), which is resolved here.
-// Changing the order would move the settings location and orphan existing
-// user settings.
 const events = new RendererEvents()
 const settingsService = new SettingsService(events)
 const importService = new ImportService(settingsService, events)
@@ -26,10 +22,6 @@ let mainWindow: BrowserWindow
 
 app.setName('Copy Cart')
 
-// Dev-only heads-up: an ELEVATED process cannot receive file drag & drop from
-// non-elevated Explorer/Desktop (Windows UIPI) — the cursor shows a "no" sign
-// and no events ever arrive. `net session` only succeeds when elevated, so a
-// failure here means we're running normally.
 if (!app.isPackaged && process.platform === 'win32') {
 	try {
 		execFileSync('net', ['session'], { stdio: 'ignore', windowsHide: true })
@@ -47,8 +39,6 @@ app.whenReady().then(() => {
 		const settings = settingsService.load()
 		if (settings.imports.length > 0) importService.cacheFiles(settings.imports).catch((error) => console.error('Failed to restore import files:', error))
 
-		// Check on every launch; if an update is available the user is prompted
-		// before anything is downloaded (see UpdateService).
 		updateService.checkForUpdates()
 	})
 })
@@ -63,22 +53,17 @@ app.on('before-quit', () => {
 })
 
 // *** IPC Handlers ***
-// One typed registry for every renderer request — channels and payloads are
-// defined in the shared contract (shared/ipc.ts).
 const handlers: IpcHandlers = {
 	'open-file-dialog': async (request) => {
 		const filePaths = await openFileDialog(request)
 		if (filePaths.length === 0) return []
 
-		// Import Orders accumulate: new picks join the current selection and
-		// re-picked files collapse silently. The ✕ button resets everything.
 		if (request.kind === 'import-orders') importService.cacheFiles(settingsService.settings.imports.concat(filePaths))
 		if (request.kind === 'print-files') settingsService.setPrintFiles(filePaths[0])
 		if (request.kind === 'print-folder') settingsService.setPrintFolder(filePaths[0])
 
 		return filePaths
 	},
-	// Drops accumulate too — see the import-orders routing in 'open-file-dialog'.
 	'cache-import-files': (filePaths) => importService.cacheFiles(settingsService.settings.imports.concat(filePaths)),
 	'remove-import-file': (filePath) => importService.removeFile(filePath),
 	'delete-cache': () => { importService.deleteCache() },
@@ -99,11 +84,6 @@ const handlers: IpcHandlers = {
 		const previousColumns = JSON.stringify(settingsService.settings.csvColumns)
 		const saved = settingsService.save(settings, false)
 
-		// A saved mapping change re-resolves the current selection right away:
-		// fixing a renamed header reloads the orders without re-picking files,
-		// and a broken mapping surfaces its refusal immediately. A refused
-		// reload keeps the loaded orders and the selection (failed loads
-		// never wipe data).
 		if (saved && settingsService.settings.imports.length > 0 && JSON.stringify(settingsService.settings.csvColumns) !== previousColumns) {
 			importService.cacheFiles(settingsService.settings.imports).catch((error) => console.error('Failed to reload imports after a mapping change:', error))
 		}
@@ -115,14 +95,11 @@ const handlers: IpcHandlers = {
 	'update-window:close': () => { updateService.closeUpdateWindow() },
 }
 
-// Object.entries erases the per-channel signatures; the IpcHandlers type guarantees
-// each handler matches its channel, so the loose cast here is safe.
 for (const [channel, handler] of Object.entries(handlers)) {
 	ipcMain.handle(channel, (_event, ...args: unknown[]) => (handler as (...handlerArgs: any[]) => any)(...args))
 }
 
 // *** Util Methods ***
-// Window-scoped file dialog; the `kind`-based routing lives in the handler above.
 async function openFileDialog(request: OpenDialogRequest): Promise<string[]> {
 	if (!mainWindow) return []
 
@@ -140,8 +117,6 @@ function createWindow() {
 	mainWindow = new BrowserWindow({
 		width: 900,
 		height: 500,
-		// The dashboard is designed for this size — don't allow shrinking
-		// below it, so panels are never squeezed into overflow.
 		minWidth: 900,
 		minHeight: 500,
 		frame: false,

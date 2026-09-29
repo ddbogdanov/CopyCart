@@ -37,6 +37,13 @@ catch (error) {
 const logModule = await import('electron-log')
 check('electron-log bare import works', typeof (logModule.default ?? logModule).info === 'function')
 
+// UpdateService MUST keep an 'error' listener on the updater: electron-updater's
+// check/download failure paths only emit 'error' (they don't log it), and an
+// unobserved 'error' event throws — silently swallowing field failures.
+const { UpdateService } = await import('../electron/services/UpdateService.ts')
+new UpdateService()
+check('UpdateService attaches an updater error listener', pkg.autoUpdater.listenerCount('error') > 0)
+
 console.log('')
 if (failures.length) {
 	console.error(`FAILED (${failures.length}): ${failures.join('; ')}`)

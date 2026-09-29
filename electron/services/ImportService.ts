@@ -327,9 +327,6 @@ export class ImportService {
 			const sku = columns.sku ? row[columns.sku]?.toLowerCase() : undefined
 			const quantity = columns.quantity ? row[columns.quantity] : undefined
 			const billingName = columns.billingName ? row[columns.billingName]?.trim() : undefined
-			// Payment method + paid date ride the copy file names (picked up from main)
-			// and are configurable like the rest — a resolved key reads exactly the
-			// same values as before under the shipped defaults.
 			const paymentMethod = columns.paymentMethod ? row[columns.paymentMethod] : undefined
 			const paidDate = columns.paidDate ? row[columns.paidDate] : undefined
 
@@ -373,9 +370,6 @@ export class ImportService {
 		return new Promise((resolve, reject) => {
 			const results: any[] = []
 			const readStream = fs.createReadStream(filePath)
-			// Reject on BOTH the read stream (missing/locked/directory paths) and
-			// the parser — listening only to the parser leaves source errors
-			// unhandled, which would crash the whole process.
 			readStream.on('error', reject)
 			readStream
 				.pipe(csv())

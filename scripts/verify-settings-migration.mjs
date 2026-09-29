@@ -282,6 +282,46 @@ console.log('\n[8] CSV column mapping: defaults, partial merge, sanitize, write-
 		relaunchedSettings.csvColumns.orderName === 'Name' && relaunchedSettings.csvColumns.sku === 'variant sku' && relaunchedSettings.csvColumns.quantity === 'Qty')
 }
 
+console.log('\n[9] Stored settings type sanitization (valid JSON, wrong types)')
+{
+	resetSandbox()
+
+	// `clearInvalidConfig` only catches invalid JSON — wrong-typed values in a
+	// hand-edited (or older) store must be coerced back to the contract types.
+	fs.writeFileSync(storePath, JSON.stringify({
+		shouldSave: { imports: 'yes', printFiles: 0, printFolder: null },
+		printFiles: 123,
+		printFolder: { nested: true },
+		recursivePrintFiles: 'yes',
+		themeColor: 'not-a-color'
+	}), 'utf-8')
+
+	const salvaged = createServices()
+	const salvagedSettings = boot(salvaged)
+	check('wrong-typed paths fall back to defaults',
+		salvagedSettings.printFiles === '' && salvagedSettings.printFolder === '')
+	check('invalid theme color falls back to the default', salvagedSettings.themeColor === '#10b981')
+	check('non-boolean shouldSave flags fall back to defaults',
+		salvagedSettings.shouldSave.imports === false && salvagedSettings.shouldSave.printFiles === true && salvagedSettings.shouldSave.printFolder === true)
+	check('non-boolean recursive toggle falls back to false', salvagedSettings.recursivePrintFiles === false)
+
+	// Well-typed non-default values must survive sanitization untouched.
+	fs.writeFileSync(storePath, JSON.stringify({
+		shouldSave: { imports: true, printFiles: false, printFolder: true },
+		printFiles: 'C:\\KeptFiles',
+		printFolder: 'C:\\KeptFolder',
+		recursivePrintFiles: true,
+		themeColor: '#3b82f6'
+	}), 'utf-8')
+
+	const kept = createServices()
+	const keptSettings = boot(kept)
+	check('well-typed values survive sanitization',
+		keptSettings.printFiles === 'C:\\KeptFiles' && keptSettings.printFolder === 'C:\\KeptFolder' &&
+		keptSettings.recursivePrintFiles === true && keptSettings.themeColor === '#3b82f6' &&
+		keptSettings.shouldSave.imports === true && keptSettings.shouldSave.printFiles === false)
+}
+
 console.log('')
 if (failures.length) {
 	console.error(`FAILED (${failures.length}): ${failures.join('; ')}`)

@@ -8,10 +8,6 @@ import type { ImportService } from './ImportService.ts'
 /**
  * Copies the selected print files into the output folder (one copy per ordered
  * quantity), streaming progress updates to the renderer.
- *
- * Full accounting: every imported order line is either copied, or explicitly
- * reported (no print file / invalid quantity / copy failure) — nothing is
- * skipped silently.
  */
 export class FileCopyService {
 	private fileCache: Map<string, string> = new Map()
@@ -95,9 +91,6 @@ export class FileCopyService {
 			const copyPromises = new Array<Promise<void>>()
 
 			for(let i = 0; i < quantity; i++) {
-				// Name formula picked up from main: the paid date and the payment
-				// method are part of the destination name (empty segments when the
-				// export has no such columns).
 				const destPath = path.join(settings.printFolder, sanitizePath(`${order.name}-${order.billingName}-${order.sku}-${order.paidDate ?? ''}-${(order.paymentMethod ?? '').toLowerCase().replace(' ', '_')}-${i}-${index}${ext}`))
 				destinations.push(destPath)
 
@@ -105,8 +98,6 @@ export class FileCopyService {
 				copyPromises.push(fs.promises.copyFile(matchedOrder, destPath))
 			}
 
-			// allSettled (not all): one failure must not mask the copies that did
-			// succeed — both outcomes feed the final accounting below.
 			const results = await Promise.allSettled(copyPromises)
 			for (let i = 0; i < results.length; i++) {
 				const result = results[i]
@@ -114,7 +105,6 @@ export class FileCopyService {
 				else {
 					failedFiles++
 					console.error(`Failed to copy ${destinations[i]}:`, result?.reason)
-					// Persist the failure for the user-visible log the notice points to.
 					log.error(`Failed to copy ${destinations[i]}:`, result?.reason)
 				}
 			}
@@ -122,7 +112,6 @@ export class FileCopyService {
 			this.events.send('update:loading:state', {'isLoading': true, 'progress': ((index / totalOrders)*100), 'status': `Copying... ${destinations[destinations.length - 1]}`})
 		}
 
-		// Accounting: every imported line is either copied, or reported here.
 		const unmatchedCopies = unmatchedLines.reduce((sum, order) => sum + (Number(order.quantity) || 0), 0)
 
 		const notices: string[] = []
@@ -139,7 +128,7 @@ export class FileCopyService {
 			for (const order of unmatchedLines) console.error(`   ${order.name}  |  ${order.sku || '(missing sku)'}  |  qty ${order.quantity}`)
 		}
 		if (invalidQuantityLines > 0) notices.push(`${invalidQuantityLines} order line(s) skipped — missing/invalid quantity.`)
-		// %APPDATA% is short and still opens in Explorer's address bar / the Run dialog.
+		
 		if (failedFiles > 0) notices.push(`${failedFiles} file(s) failed to copy — details in the log (%APPDATA%\\Copy Cart\\logs\\main.log).`)
 		if (notices.length > 0) this.events.send('toast', notices.join(' '))
 

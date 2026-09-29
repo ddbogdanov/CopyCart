@@ -5,13 +5,12 @@ import path from "path"
 import type { CsvColumns, Settings } from '../../shared/ipc'
 import type { RendererEvents } from './RendererEvents.ts'
 
-/** Shape of the persisted settings (single source of truth: shared/ipc.ts). */
 type PersistedSettings = Settings
 
 const SETTINGS_STORE_NAME = 'config'              // electron-store file: <userData>/config.json
 const LEGACY_SETTINGS_FILENAME = 'settings.json'  // hand-written file used by app versions <= 1.4.x
 
-/** Shipped CSV header names — the importer's original hardcoded columns. */
+/** Shipped CSV header names */
 const DEFAULT_CSV_COLUMNS: CsvColumns = {
 	orderName: 'Name',
 	sku: 'Lineitem sku',
@@ -65,6 +64,26 @@ function normalizeCsvColumns(value: unknown): CsvColumns {
 	}
 }
 
+/** A well-formed `#rrggbb` color literal. */
+function isHexColor(value: string): boolean {
+	return /^#[0-9a-f]{6}$/i.test(value)
+}
+
+/** A stored string; any other type (number, object, null, ...) falls back. */
+function sanitizeString(value: unknown, fallback: string): string {
+	return typeof value === 'string' ? value : fallback
+}
+
+/** A stored boolean; any other type falls back. */
+function sanitizeBoolean(value: unknown, fallback: boolean): boolean {
+	return typeof value === 'boolean' ? value : fallback
+}
+
+/** A stored theme color; a malformed or non-string value falls back to the default. */
+function sanitizeThemeColor(value: unknown): string {
+	return typeof value === 'string' && isHexColor(value) ? value : DEFAULT_SETTINGS.themeColor
+}
+
 /**
  * Owns the persisted application settings: electron-store lifecycle, the one-time
  * migration from the legacy `settings.json`, load/save, and the print-path
@@ -82,16 +101,12 @@ export class SettingsService {
 			this.store = new Store<PersistedSettings>({
 				name: SETTINGS_STORE_NAME,
 				defaults: DEFAULT_SETTINGS,
-				// If the settings file ever gets corrupted (manual edit, disk issue),
-				// fall back to defaults instead of crashing on startup.
 				clearInvalidConfig: true
 			})
 
 			this.migrateLegacySettings()
 		}
 		catch (error) {
-			// Settings must never prevent the app from starting (locked or read-only
-			// userData, broken install, ...) — run with in-memory defaults instead.
 			console.error('[SettingsService] Settings store unavailable — running with in-memory settings.', error)
 		}
 	}
@@ -124,8 +139,6 @@ export class SettingsService {
 		}
 
 		const settingsToSave = { ...(this.currentSettings ?? {}), ...(s ?? {}) }
-		// Sanitize the column mapping on save too — a blank/whitespace value can
-		// never outlive a save (blank = "use the shipped default" everywhere).
 		settingsToSave.csvColumns = normalizeCsvColumns(settingsToSave.csvColumns)
 
 		try {
@@ -146,8 +159,6 @@ export class SettingsService {
 		}
 	}
 
-	// The setters/clears below write through to disk immediately (crash-safe);
-	// the "Save on exit?" checkboxes still decide what survives a clean quit.
 	setPrintFiles(printFiles: string) {
 		this.currentSettings.printFiles = printFiles
 		this.events.send('settings:update', this.currentSettings)
@@ -212,7 +223,6 @@ export class SettingsService {
 			console.log(`[SettingsService] Migrated legacy settings from ${legacyPath} to ${store.path}`)
 		}
 		catch (error) {
-			// Keep the app usable with defaults and retry the migration next launch.
 			console.error(`[SettingsService] Failed to migrate legacy settings; ${legacyPath} was left untouched.`, error)
 		}
 	}
@@ -231,7 +241,6 @@ export class SettingsService {
 
 		const migrated: Partial<PersistedSettings> = { shouldSave }
 
-		// Legacy `imports` was a single path string — normalize to the list form.
 		if (typeof legacySettings.imports === 'string' && legacySettings.imports) {
 			migrated.imports = [legacySettings.imports]
 		}
@@ -243,7 +252,7 @@ export class SettingsService {
 			if (typeof legacySettings[key] === 'string') migrated[key] = legacySettings[key]
 		}
 
-		if (typeof legacySettings.themeColor === 'string' && /^#[0-9a-f]{6}$/i.test(legacySettings.themeColor)) {
+		if (typeof legacySettings.themeColor === 'string' && isHexColor(legacySettings.themeColor)) {
 			migrated.themeColor = legacySettings.themeColor
 		}
 
@@ -254,15 +263,22 @@ export class SettingsService {
 		const store = this.store
 		if (!store) return structuredClone(DEFAULT_SETTINGS)
 
-		// electron-store does not deep-merge nested defaults — merge `shouldSave`
-		// and `csvColumns` manually.
+		// electron-store does not deep-merge nested defaults, so `shouldSave` is
+		// merged per key — and every value is re-typed on read: `clearInvalidConfig`
+		// only catches invalid JSON, so a hand-edited (or older) store could
+		// otherwise leak wrong-typed values into the app.
+		const storedShouldSave = { ...DEFAULT_SETTINGS.shouldSave, ...(store.get('shouldSave') ?? {}) }
 		return {
-			shouldSave: { ...DEFAULT_SETTINGS.shouldSave, ...(store.get('shouldSave') ?? {}) },
+			shouldSave: {
+				imports: sanitizeBoolean(storedShouldSave.imports, DEFAULT_SETTINGS.shouldSave.imports),
+				printFiles: sanitizeBoolean(storedShouldSave.printFiles, DEFAULT_SETTINGS.shouldSave.printFiles),
+				printFolder: sanitizeBoolean(storedShouldSave.printFolder, DEFAULT_SETTINGS.shouldSave.printFolder)
+			},
 			imports: normalizeImports(store.get('imports') as unknown),
-			printFiles: store.get('printFiles'),
-			printFolder: store.get('printFolder'),
-			recursivePrintFiles: store.get('recursivePrintFiles') === true,
-			themeColor: store.get('themeColor'),
+			printFiles: sanitizeString(store.get('printFiles'), DEFAULT_SETTINGS.printFiles),
+			printFolder: sanitizeString(store.get('printFolder'), DEFAULT_SETTINGS.printFolder),
+			recursivePrintFiles: sanitizeBoolean(store.get('recursivePrintFiles'), DEFAULT_SETTINGS.recursivePrintFiles),
+			themeColor: sanitizeThemeColor(store.get('themeColor')),
 			csvColumns: normalizeCsvColumns(store.get('csvColumns'))
 		}
 	}
