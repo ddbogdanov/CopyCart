@@ -91,7 +91,7 @@ console.log('\n[2] Migration from legacy settings.json (the auto-update path)')
 {
 	resetSandbox()
 	const csvPath = path.join(testRoot, 'orders.csv')
-	fs.writeFileSync(csvPath, 'Name,Lineitem sku,Lineitem quantity,Billing Name\n#1001,SKU-A,2,Jane Doe\n', 'utf-8')
+	fs.writeFileSync(csvPath, 'Name,Lineitem sku,Lineitem quantity,Billing Name,Paid at,Payment Method\n#1001,SKU-A,2,Jane Doe,,\n', 'utf-8')
 	writeLegacy({ ...LEGACY_FIXTURE, imports: csvPath })
 
 	const upgraded = createServices()
@@ -232,6 +232,54 @@ console.log('\n[7] Store unavailable (unwritable/misconfigured userData — app 
 		console.error('   ', error)
 	}
 	check('store initialization failure does not crash the app', handled)
+}
+
+console.log('\n[8] CSV column mapping: defaults, partial merge, sanitize, write-through')
+{
+	// Restore the real sandbox path (section [7] pointed userData beneath a file).
+	app.setPath('userData', userDataPath)
+	resetSandbox()
+
+	// Defaults byte-exact vs. the shipped literals.
+	const fresh = createServices()
+	const loaded = boot(fresh)
+	check('csv mapping defaults are byte-exact',
+		JSON.stringify(loaded.csvColumns) === JSON.stringify({ orderName: 'Name', sku: 'Lineitem sku', quantity: 'Lineitem quantity', billingName: 'Billing Name', paidDate: 'Paid at', paymentMethod: 'Payment Method' }))
+
+	// Partial stored object merges over the defaults per key (electron-store does not deep-merge).
+	fs.writeFileSync(storePath, JSON.stringify({ csvColumns: { sku: 'Variant SKU' } }), 'utf-8')
+	const partial = createServices()
+	const partialSettings = boot(partial)
+	check('partial stored mapping merges over defaults',
+		partialSettings.csvColumns.sku === 'Variant SKU' &&
+		partialSettings.csvColumns.orderName === 'Name' &&
+		partialSettings.csvColumns.quantity === 'Lineitem quantity' &&
+		partialSettings.csvColumns.billingName === 'Billing Name' &&
+		partialSettings.csvColumns.paidDate === 'Paid at' &&
+		partialSettings.csvColumns.paymentMethod === 'Payment Method')
+
+	// Blank / whitespace-only / wrong-typed values fall back to the defaults.
+	fs.writeFileSync(storePath, JSON.stringify({ csvColumns: { sku: '   ', orderName: 42, billingName: '  Billing Name  ' } }), 'utf-8')
+	const sanitized = createServices()
+	const sanitizedSettings = boot(sanitized)
+	check('blank/whitespace mapping values fall back to defaults',
+		sanitizedSettings.csvColumns.sku === 'Lineitem sku' && sanitizedSettings.csvColumns.orderName === 'Name')
+	check('stored mapping values are trimmed', sanitizedSettings.csvColumns.billingName === 'Billing Name')
+
+	// Write-through: a save persists instantly (no quit needed) and survives a relaunch.
+	sanitized.settingsService.save({ csvColumns: { orderName: 'Name of Order', sku: ' variant sku ', quantity: 'Qty', billingName: 'Billing Name' } })
+	const storedMapping = readJson(storePath).csvColumns
+	check('custom mapping persists immediately (trimmed)',
+		storedMapping.orderName === 'Name of Order' && storedMapping.sku === 'variant sku' && storedMapping.quantity === 'Qty')
+
+	// Blank on save = default (the dialog can send a cleared field).
+	sanitized.settingsService.save({ csvColumns: { orderName: '  ', sku: 'variant sku', quantity: 'Qty', billingName: 'Billing Name' } })
+	check('blank value saved as the default', readJson(storePath).csvColumns.orderName === 'Name')
+
+	const relaunch = createServices()
+	const relaunchedSettings = boot(relaunch)
+	check('custom mapping survives a relaunch',
+		relaunchedSettings.csvColumns.orderName === 'Name' && relaunchedSettings.csvColumns.sku === 'variant sku' && relaunchedSettings.csvColumns.quantity === 'Qty')
 }
 
 console.log('')

@@ -6,6 +6,29 @@
  * and never ends up in a bundle.
  */
 
+/**
+ * CSV header names the importer matches for each known field.
+ *
+ * The field set itself is fixed (order name, SKU, quantity, billing name, paid date, payment method) —
+ * users only edit which header text each field is read from, so a renamed
+ * export column keeps working. Blank values fall back to the shipped defaults
+ * (SettingsService sanitizes on read and save).
+ */
+export type CsvColumns = {
+	/** Column holding the order name (drives the copy file names). */
+	orderName: string
+	/** Column holding the SKU (matches print files to order lines). */
+	sku: string
+	/** Column holding the ordered quantity (how many copies are made). */
+	quantity: string
+	/** Column holding the billing name (shown in the copy file names). */
+	billingName: string
+	/** Column holding the paid date (shown in the copy file names). */
+	paidDate: string
+	/** Column holding the payment method (shown in the copy file names). */
+	paymentMethod: string
+}
+
 /** Application settings, persisted by the main process (SettingsService / electron-store). */
 export type Settings = {
 	shouldSave: {
@@ -20,6 +43,8 @@ export type Settings = {
 	/** When true, the copy pipeline also searches subfolders of `printFiles` for designs. */
 	recursivePrintFiles: boolean
 	themeColor: string
+	/** CSV header names the importer reads each known field from. */
+	csvColumns: CsvColumns
 }
 
 /** What the picked file is used for — decides how the main process routes it. */

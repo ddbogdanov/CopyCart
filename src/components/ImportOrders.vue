@@ -16,25 +16,25 @@
     :delete-button-action="onClear"
   >
     <template #header-actions>
-      <Button severity="secondary" icon="pi pi-cog" v-tooltip="'Configure Sort'" class="configure-sort-button"/>
+      <Button severity="secondary" icon="pi pi-cog" v-tooltip="'Configure Import — fix renamed CSV columns.'" class="configure-import-button" @click="onConfigureImport"/>
     </template>
 
     <template #status>
       <div class="import-status">
-        <div class="status-line" v-if="isParsing">
-          <i class="pi pi-spin pi-spinner" />
-          <p class="status-text">Parsing order files…</p>
-        </div>
+        <StatusLine v-if="isParsing">
+          <template #leading><i class="pi pi-spin pi-spinner" /></template>
+          Parsing order files…
+        </StatusLine>
 
         <template v-else-if="fileNames.length > 0">
-          <div class="status-line">
-            <i class="pi pi-check-circle" />
-            <p class="status-text">
-              {{ fileNames.length }} file{{ fileNames.length === 1 ? '' : 's' }}{{ orderCount > 0 ? ` • ${orderCount} order${orderCount === 1 ? '' : 's'}` : '' }}
-            </p>
-            <Button icon="pi pi-times" severity="danger" variant="text" size="small" rounded
-                    class="clear-button" v-tooltip.top="'Clear imported files'" @click="onClear"/>
-          </div>
+          <StatusLine>
+            <template #leading><i class="pi pi-check-circle" /></template>
+            {{ fileNames.length }} file{{ fileNames.length === 1 ? '' : 's' }} • {{ orderCount }} order{{ orderCount === 1 ? '' : 's' }}
+            <template #trailing>
+              <Button icon="pi pi-times" severity="danger" variant="text" size="small" rounded
+                      v-tooltip.top="'Clear imported files'" @click="onClear"/>
+            </template>
+          </StatusLine>
 
           <div class="file-list">
             <div class="file-row" v-for="(fileName, index) in fileNames" :key="props.filePaths[index]">
@@ -48,7 +48,7 @@
           </div>
         </template>
 
-        <p v-else class="status-text placeholder">No files selected</p>
+        <StatusLine v-else placeholder>No files selected</StatusLine>
       </div>
     </template>
   </FilePick>
@@ -59,12 +59,15 @@ import { computed, onMounted, ref } from 'vue'
 import type { PropType } from 'vue'
 import { ipc } from '../ipc'
 import FilePick from './FilePick.vue'
+import StatusLine from './StatusLine.vue'
 
 const props = defineProps({
 	title: String,
     titleToolTip: String,
     filePaths: { type: Array as PropType<string[]>, default: () => [] },
 })
+
+const emit = defineEmits(['configure-import'])
 
 const isParsing = ref(false)
 const orderCount = ref(0)
@@ -90,6 +93,11 @@ function onClear() {
     void ipc.deleteCache()
 }
 
+function onConfigureImport() {
+    // App owns the dialog + persistence — this card only opens it.
+    emit('configure-import')
+}
+
 function onRemoveFile(index: number) {
     const filePath = props.filePaths[index]
     if (!filePath) return
@@ -99,7 +107,7 @@ function onRemoveFile(index: number) {
 </script>
 
 <style scoped lang="scss">
-.configure-sort-button {
+.configure-import-button {
     margin-left: auto;
 }
 
@@ -110,69 +118,18 @@ function onRemoveFile(index: number) {
     flex-direction: column;
     gap: 2px;
 
-    // Bounded by the (possibly shrunken) status area so the list can scroll
-    // once the card runs out of space (see FilePick's dropzone/file-status).
     max-height: 100%;
     min-height: 0;
     overflow: hidden;
 }
 
-.status-line {
-    // Leading icon hard left, summary text dead-center, trailing action hard
-    // right. The equal 1fr side columns keep the text perfectly centered even
-    // though the icon and the clear button have different widths.
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
-    align-items: center;
-    gap: 6px;
-
-    width: 100%;
-    min-width: 0;
-    flex-shrink: 0;
-
-    > i {
-        justify-self: start;
-
-        font-size: 13px;
-        color: var(--p-primary-500);
-    }
-
-    .status-text {
-        justify-self: center;
-    }
-
-    .clear-button {
-        justify-self: end;
-    }
-}
-
-.status-text {
-    margin: 0;
-
-    font-size: 12px;
-    color: var(--p-surface-400);
-
-    max-width: 100%;
-
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-
-    &.placeholder {
-        opacity: 0.7;
-    }
-}
-
 .file-list {
     width: 100%;
 
-    // Grows with the content up to the space the card has left (the dropzone
-    // yields first), then scrolls — no fixed row limit.
     flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
 
-    // Separator between the list and the summary row above it.
     border-top: 1px solid var(--p-surface-700);
     padding-top: 6px;
 
@@ -182,7 +139,6 @@ function onRemoveFile(index: number) {
 
     padding-right: 4px;
 
-    // Slim scrollbar so a long list stays subtle.
     &::-webkit-scrollbar {
         width: 5px;
     }

@@ -95,7 +95,21 @@ const handlers: IpcHandlers = {
 		return true
 	},
 	'exit': () => { mainWindow.close() },
-	'save-settings': (settings) => settingsService.save(settings, false),
+	'save-settings': (settings) => {
+		const previousColumns = JSON.stringify(settingsService.settings.csvColumns)
+		const saved = settingsService.save(settings, false)
+
+		// A saved mapping change re-resolves the current selection right away:
+		// fixing a renamed header reloads the orders without re-picking files,
+		// and a broken mapping surfaces its refusal immediately. A refused
+		// reload keeps the loaded orders and the selection (failed loads
+		// never wipe data).
+		if (saved && settingsService.settings.imports.length > 0 && JSON.stringify(settingsService.settings.csvColumns) !== previousColumns) {
+			importService.cacheFiles(settingsService.settings.imports).catch((error) => console.error('Failed to reload imports after a mapping change:', error))
+		}
+
+		return saved
+	},
 	'open-dev-tools': () => { mainWindow.webContents.openDevTools() },
 	'update-window:cancel': () => { updateService.cancelDownload() },
 	'update-window:close': () => { updateService.closeUpdateWindow() },

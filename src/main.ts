@@ -24,6 +24,8 @@ import Fieldset from 'primevue/fieldset'
 import ColorPicker from 'primevue/colorpicker'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
+import Dialog from 'primevue/dialog'
+import InputText from 'primevue/inputtext'
 import { definePreset } from '@primeuix/themes'
 
 // Default preset — the primary palette is replaced at runtime from saved settings (updatePrimaryPalette)
@@ -87,6 +89,8 @@ app.component('Fieldset', Fieldset)
 app.component('ColorPicker', ColorPicker)
 app.component('DataTable', DataTable)
 app.component('Column', Column)
+app.component('Dialog', Dialog)
+app.component('InputText', InputText)
 
 app.directive('tooltip', Tooltip)
 
@@ -98,5 +102,5 @@ app.mount('#app')
 // TODO:
 //
 // 1. Filter Print Folder (destPath) based on conditions given by import file
-// 2. Deep search/multiple directory selection for print files
+// 2. <--Deep-search/multiple-directory-selection-for-print-files-->
 // 		a. Additionally, directory hierarchy preservation on copy

@@ -1,8 +1,10 @@
 import fs from "fs"
 import csv from "csv-parser"
 import path from "path"
+import log from 'electron-log'
 import type { RendererEvents } from './RendererEvents.ts'
 import type { SettingsService } from './SettingsService.ts'
+import type { CsvColumns } from '../../shared/ipc'
 
 /**
  * Parses and caches the order-import data (CSV only).
@@ -24,8 +26,27 @@ function formatSkipped(report: string[]): string {
 	return `${report.slice(0, MAX_DETAILS).join(', ')}, +${report.length - MAX_DETAILS} more`
 }
 
+/** One file's resolved header key per known field (undefined = column absent). */
+type ResolvedColumns = Record<keyof CsvColumns, string | undefined>
+
+/**
+ * Every configured column is required (user rule 2026-09-28): a file without a
+ * match for ANY configured header is skipped — never copied with blanks.
+ */
+const REQUIRED_COLUMN_FIELDS: Array<keyof CsvColumns> = ['orderName', 'sku', 'quantity', 'billingName', 'paidDate', 'paymentMethod']
+
+/** Appended to skip notices when files were skipped for a missing required column. */
+const MISSING_COLUMN_GUIDANCE = ' If the export renamed a column, set its new header in the ⚙ "Configure Import" dialog on the Import Orders card.'
+
+/** BOM-safe, whitespace-tolerant comparison key used only for header matching. */
+function normalizeHeader(header: string): string {
+	return header.replace(/\uFEFF/g, '').trim().toLowerCase()
+}
+
 export class ImportService {
 	private importCache: Array<any> = new Array()
+	/** JSON of the csvColumns mapping the current cache was parsed under (null = nothing loaded). */
+	private parsedColumns: string | null = null
 	/** Incremented per load; an in-flight load is abandoned when it no longer matches. */
 	private loadToken = 0
 	private settingsService: SettingsService
@@ -41,9 +62,20 @@ export class ImportService {
 		return this.importCache
 	}
 
+	/**
+	 * True when orders are loaded whose parse-time mapping differs from the
+	 * mapping currently saved (e.g. a saved mapping change whose re-read was
+	 * refused, leaving the older orders loaded). Copy must not run then — see
+	 * the gate in FileCopyService.
+	 */
+	get mappingChangedSinceLoad(): boolean {
+		return this.importCache.length > 0 && this.parsedColumns !== JSON.stringify(this.settingsService.settings.csvColumns)
+	}
+
 	deleteCache(): boolean {
 		this.loadToken++
 		this.importCache = []
+		this.parsedColumns = null
 		this.settingsService.clearImports()
 		this.events.send('settings:update', this.settingsService.settings)
 		this.events.send('import:status', { isParsing: false, fileCount: 0, orderCount: 0 })
@@ -97,6 +129,11 @@ export class ImportService {
 
 		this.events.send('import:status', { isParsing: true })
 
+		// The column mapping is read once per load; skipped files are counted so
+		// the folded notices can add the fix-it guidance.
+		const columns = this.settingsService.settings.csvColumns
+		let missingColumnSkips = 0
+
 		const token = ++this.loadToken
 		let committed = false
 		try {
@@ -121,7 +158,25 @@ export class ImportService {
 					continue
 				}
 
-				const orders = this.toOrderRows(rows)
+				// Resolve the configured header names against this file's actual
+				// headers — once per file, plain string comparison only. If ANY
+				// configured column has no match, the file is skipped with a short
+				// reason (before any dedupe/commit side effects) — no copies from
+				// it at all. Header-only CSVs bypass the check.
+				const resolvedColumns = this.resolveColumns(columns, rows)
+				if (rows.length > 0) {
+					const missingRequired = REQUIRED_COLUMN_FIELDS.filter((field) => !resolvedColumns[field])
+					if (missingRequired.length > 0) {
+						const listed = missingRequired.map((field) => `"${columns[field]}"`).join(', ')
+						const plural = missingRequired.length > 1 ? 's' : ''
+						skippedReport.push(`${path.basename(csvPath)} — missing column${plural} ${listed}`)
+						missingColumnSkips++
+						log.warn(`[ImportService] ${path.basename(csvPath)} — missing column${plural} ${listed}. Actual headers: ${Object.keys(rows[0]).join(', ')}`)
+						continue
+					}
+				}
+
+				const orders = this.toOrderRows(rows, resolvedColumns)
 
 				// Content-level dedupe: re-adding an identical file (e.g. a second
 				// download of the same export) must not inflate the row counts —
@@ -165,7 +220,8 @@ export class ImportService {
 			if (token !== this.loadToken) return false
 
 			if (keptPaths.length === 0) {
-				this.events.send('toast', `No files could be read — skipped: ${formatSkipped(skippedReport)}`)
+				const guidance = missingColumnSkips > 0 ? MISSING_COLUMN_GUIDANCE : ''
+				this.events.send('toast', `No files could be read — skipped: ${formatSkipped(skippedReport)}${guidance}`)
 
 				return false;
 			}
@@ -174,6 +230,7 @@ export class ImportService {
 			// re-import must never wipe data that is already loaded.
 			this.importCache = merged
 			this.settingsService.setImports(keptPaths)
+			this.parsedColumns = JSON.stringify(columns)
 			committed = true
 
 			this.events.send('import:status', { isParsing: false, fileCount: keptPaths.length, orderCount: merged.length })
@@ -183,7 +240,10 @@ export class ImportService {
 			const notices: string[] = []
 			if (duplicateRows > 0) notices.push(`Ignored ${duplicateRows} duplicate order line(s) found across the selected files.`)
 			if (conflictingRows > 0) notices.push(`${conflictingRows} of them had a different quantity in a later file — kept the first file's value.`)
-			if (skippedReport.length > 0) notices.push(`Skipped file(s): ${formatSkipped(skippedReport)}`)
+			if (skippedReport.length > 0) {
+				const guidance = missingColumnSkips > 0 ? MISSING_COLUMN_GUIDANCE : ''
+				notices.push(`Skipped file(s): ${formatSkipped(skippedReport)}${guidance}`)
+			}
 			if (notices.length > 0) this.events.send('toast', notices.join(' '))
 
 			console.log(`${merged.length} order imports cached from ${keptPaths.length} file(s)`);
@@ -193,9 +253,11 @@ export class ImportService {
 			return true;
 		}
 		finally {
-			// On any early return (nothing usable) clear the spinner; on success
-			// the full status was already sent above.
-			if (!committed) this.events.send('import:status', { isParsing: false })
+			// On any early return (nothing usable) clear the spinner and
+			// republish the counts actually in effect — the cache that is still
+			// loaded — so the card can never show a stuck spinner or stale
+			// numbers. On success the full status was already sent above.
+			if (!committed) this.events.send('import:status', { isParsing: false, fileCount: 0, orderCount: this.importCache.length })
 		}
 	}
 
@@ -221,19 +283,55 @@ export class ImportService {
 	}
 
 	/**
-	 * Normalizes raw CSV rows into order rows: strips '#' from order names,
-	 * lowercases SKUs, and fills missing billing names from the last one seen
-	 * for the same order (billing info often rides only the first row of a group).
+	 * Resolves the configured header names to this file's actual header keys.
+	 * Plain string comparison only (no regex): an exact key wins first — a file
+	 * with both `Name` and `name` keeps reading `Name`, as before — then a BOM/
+	 * trim/case-insensitive match engages; the first qualifying header in file
+	 * order wins. Called once per file.
 	 */
-	private toOrderRows(rows: any[]): any[] {
+	private resolveColumns(configured: CsvColumns, rows: any[]): ResolvedColumns {
+		const headers = rows.length > 0 ? Object.keys(rows[0]) : []
+
+		const resolve = (configuredName: string): string | undefined => {
+			if (headers.includes(configuredName)) return configuredName
+
+			const normalized = normalizeHeader(configuredName)
+			return headers.find((header) => normalizeHeader(header) === normalized)
+		}
+
+		return {
+			orderName: resolve(configured.orderName),
+			sku: resolve(configured.sku),
+			quantity: resolve(configured.quantity),
+			billingName: resolve(configured.billingName),
+			paidDate: resolve(configured.paidDate),
+			paymentMethod: resolve(configured.paymentMethod)
+		}
+	}
+
+	/**
+	 * Normalizes raw CSV rows into order rows using the resolved header keys:
+	 * strips '#' from order names (first one only), lowercases SKUs, and fills
+	 * missing billing names, payment methods and paid dates from the last ones
+	 * seen for the same order (they often ride only the first row of a group).
+	 * Values pass through exactly as before — only the key lookup changed.
+	 */
+	private toOrderRows(rows: any[], columns: ResolvedColumns): any[] {
 		const orders: any[] = []
 		const lastBillingByOrder = new Map<string, string>()
+		const lastPaymentMethodByOrder = new Map<string, string>()
+		const lastPaidDateByOrder = new Map<string, string>()
 
 		for (const row of rows) {
-			const name = row['Name']?.replace('#', '')
-			const sku = row['Lineitem sku']?.toLowerCase()
-			const quantity = row['Lineitem quantity']
-			const billingName = row['Billing Name']?.trim()
+			const name = columns.orderName ? row[columns.orderName]?.replace('#', '') : undefined
+			const sku = columns.sku ? row[columns.sku]?.toLowerCase() : undefined
+			const quantity = columns.quantity ? row[columns.quantity] : undefined
+			const billingName = columns.billingName ? row[columns.billingName]?.trim() : undefined
+			// Payment method + paid date ride the copy file names (picked up from main)
+			// and are configurable like the rest — a resolved key reads exactly the
+			// same values as before under the shipped defaults.
+			const paymentMethod = columns.paymentMethod ? row[columns.paymentMethod] : undefined
+			const paidDate = columns.paidDate ? row[columns.paidDate] : undefined
 
 			if (!name) continue
 
@@ -244,11 +342,27 @@ export class ImportService {
 				resolvedBilling = lastBillingByOrder.get(name)!
 			}
 
+			let resolvedPaymentMethod = paymentMethod
+			if (resolvedPaymentMethod) {
+				lastPaymentMethodByOrder.set(name, paymentMethod)
+			} else if (lastPaymentMethodByOrder.has(name)) {
+				resolvedPaymentMethod = lastPaymentMethodByOrder.get(name)!
+			}
+
+			let resolvedPaidDate = paidDate
+			if (paidDate) {
+				lastPaidDateByOrder.set(name, paidDate)
+			} else if (lastPaidDateByOrder.has(name)) {
+				resolvedPaidDate = lastPaidDateByOrder.get(name)!
+			}
+
 			orders.push({
 				name: name,
 				sku,
 				quantity,
-				billingName: resolvedBilling ?? ''
+				billingName: resolvedBilling ?? '',
+				paymentMethod: resolvedPaymentMethod ?? '',
+				paidDate: resolvedPaidDate ?? ''
 			})
 		}
 

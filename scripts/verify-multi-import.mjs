@@ -60,10 +60,12 @@ const toasts = (sent) => sent.filter((entry) => entry.channel === 'toast').map((
 const fixtureRoot = path.join(testRoot, 'fixtures')
 fs.mkdirSync(fixtureRoot, { recursive: true })
 
-const CSV_HEADER = 'Name,Lineitem sku,Lineitem quantity,Billing Name\n'
+const CSV_HEADER = 'Name,Lineitem sku,Lineitem quantity,Billing Name,Paid at,Payment Method\n'
 function writeCsv(name, rows) {
 	const filePath = path.join(fixtureRoot, name)
-	fs.writeFileSync(filePath, CSV_HEADER + rows.join('\n') + '\n', 'utf-8')
+	// Every configured column is required now — pad the classic 4-cell rows so
+	// each of the six headers has a matching key (empty values, as before).
+	fs.writeFileSync(filePath, CSV_HEADER + rows.map((row) => `${row},,`).join('\n') + '\n', 'utf-8')
 	return filePath
 }
 
@@ -189,9 +191,9 @@ console.log('\n[8] Copy pipeline: one copy per ordered quantity, named by order'
 	const output = fs.readdirSync(outputDir).sort()
 	check('processing reports success', ok === true)
 	check('3 copies produced (1 + 2 for quantity 2)', output.length === 3)
-	check('case-insensitive file lookup (SKU-A.png -> sku-a)', output.includes('1001-Alice-sku-a-0-0.png'))
-	check('copies named with order + customer + sku + index', output.includes('1002-Bob-sku-b-0-1.png') && output.includes('1002-Bob-sku-b-1-1.png'))
-	check('output set is exactly the original naming formula (golden list)', JSON.stringify(output) === JSON.stringify(['1001-Alice-sku-a-0-0.png', '1002-Bob-sku-b-0-1.png', '1002-Bob-sku-b-1-1.png']))
+	check('case-insensitive file lookup (SKU-A.png -> sku-a)', output.includes('1001-Alice-sku-a---0-0.png'))
+	check('copies named with order + customer + sku + date + payment + index', output.includes('1002-Bob-sku-b---0-1.png') && output.includes('1002-Bob-sku-b---1-1.png'))
+	check('output set is exactly the merged naming formula (golden list)', JSON.stringify(output) === JSON.stringify(['1001-Alice-sku-a---0-0.png', '1002-Bob-sku-b---0-1.png', '1002-Bob-sku-b---1-1.png']))
 	check('final status reports the copied count', String(lastLoading(service.sent)?.status ?? '').startsWith('Done — 3 file(s) copied'))
 }
 
@@ -336,6 +338,224 @@ console.log('\n[13] Recursive print-file search is opt-in and prefers the highes
 	check('recursion on: nested files are found (3 copies)', outputOnFiles.length === 3 && outputOnFiles.some((name) => name.includes('sku-s')), JSON.stringify(outputOnFiles))
 	const xCopies = outputOnFiles.filter((name) => name.includes('sku-x'))
 	check('recursion on: highest-level file wins the name collision', xCopies.length === 1 && fs.readFileSync(path.join(outputOn, xCopies[0]), 'utf-8') === 'x-top')
+}
+
+console.log('\n[14] Configurable CSV column names (defaults, tolerance, missing-column policy)')
+{
+	const DEFAULT_COLUMNS = { orderName: 'Name', sku: 'Lineitem sku', quantity: 'Lineitem quantity', billingName: 'Billing Name', paidDate: 'Paid at', paymentMethod: 'Payment Method' }
+	const writeHeaderCsv = (name, header, rows) => {
+		const filePath = path.join(fixtureRoot, name)
+		fs.writeFileSync(filePath, rows.length > 0 ? `${header}\n${rows.join('\n')}\n` : `${header}\n`, 'utf-8')
+		return filePath
+	}
+
+	service.settingsService.save({ csvColumns: { ...DEFAULT_COLUMNS } })
+	service.importService.deleteCache()
+	service.sent.length = 0
+
+	// -- Full rename: every header changed (e.g. a Shopify export update).
+	service.settingsService.save({ csvColumns: { orderName: 'Name of Order', sku: 'Variant SKU', quantity: 'Ordered Qty', billingName: 'Customer', paidDate: 'Date Paid', paymentMethod: 'Pay Method' } })
+	const renamedCsv = writeHeaderCsv('orders-renamed.csv', 'Name of Order,Variant SKU,Ordered Qty,Customer,Date Paid,Pay Method', ['#9101,SKU-A,1,Ada,2026-07-01,Credit Card'])
+	check('full rename: the file imports', await service.importService.cacheFiles([renamedCsv]) === true)
+	check('full rename: values are read from the renamed headers',
+		service.importService.imports.length === 1 &&
+		service.importService.imports[0].name === '9101' &&
+		service.importService.imports[0].sku === 'sku-a' &&
+		service.importService.imports[0].quantity === '1' &&
+		service.importService.imports[0].billingName === 'Ada' &&
+		service.importService.imports[0].paidDate === '2026-07-01' &&
+		service.importService.imports[0].paymentMethod === 'Credit Card')
+
+	// -- Partial rename: only SKU differs; the other fields fall back to defaults.
+	service.settingsService.save({ csvColumns: { sku: 'Variant SKU' } })
+	check('partial mapping merges over the defaults',
+		JSON.stringify(service.settingsService.settings.csvColumns) === JSON.stringify({ ...DEFAULT_COLUMNS, sku: 'Variant SKU' }))
+	const partialCsv = writeHeaderCsv('orders-partial.csv', 'Name,Variant SKU,Lineitem quantity,Billing Name,Paid at,Payment Method', ['#9102,SKU-B,2,Bea,,'])
+	check('partial rename: the file imports', await service.importService.cacheFiles([partialCsv]) === true)
+	check('partial rename: other columns still read their defaults',
+		service.importService.imports.length === 1 && service.importService.imports[0].name === '9102' && service.importService.imports[0].billingName === 'Bea')
+
+	// -- Case / stray-space tolerance (normalized match engages only after an exact miss).
+	service.settingsService.save({ csvColumns: { orderName: 'name of order', sku: ' variant sku ', quantity: 'ordered qty', billingName: 'customer' } })
+	check('configured values are trimmed on save', service.settingsService.settings.csvColumns.sku === 'variant sku')
+	const tolerantCsv = writeHeaderCsv('orders-tolerant.csv', 'Name of Order, Variant SKU ,Ordered Qty,Customer,Paid at,Payment Method', ['#9103,SKU-A,1,Cleo,,'])
+	check('case/whitespace variance still matches', await service.importService.cacheFiles([tolerantCsv]) === true)
+	check('tolerant match reads the right columns',
+		service.importService.imports.length === 1 && service.importService.imports[0].name === '9103' && service.importService.imports[0].sku === 'sku-a')
+
+	// -- BOM: the first header arrives with a UTF-8 BOM prefix; the resolver strips it.
+	service.settingsService.save({ csvColumns: { ...DEFAULT_COLUMNS } })
+	const bomCsv = path.join(fixtureRoot, 'orders-bom.csv')
+	fs.writeFileSync(bomCsv, `\uFEFF${CSV_HEADER}#9104,SKU-B,1,Dana,,\n`, 'utf-8')
+	check('BOM-prefixed header still matches (all columns)', await service.importService.cacheFiles([bomCsv]) === true)
+	check('BOM file: values are read correctly',
+		service.importService.imports.length === 1 && service.importService.imports[0].name === '9104' && service.importService.imports[0].billingName === 'Dana')
+
+	// -- Missing columns: ANY configured column without a match skips the file
+	//    (reason + guidance); other files in the same load are unaffected.
+	const goodCsv = writeHeaderCsv('orders-good.csv', 'Name,Lineitem sku,Lineitem quantity,Billing Name,Paid at,Payment Method', ['#9105,SKU-A,1,Ed,,'])
+	const noNameCsv = writeHeaderCsv('orders-noname.csv', 'Lineitem sku,Lineitem quantity,Billing Name,Paid at,Payment Method', ['SKU-B,1,Fran,,'])
+	const noSkuCsv = writeHeaderCsv('orders-nosku.csv', 'Name,Lineitem quantity,Billing Name,Paid at,Payment Method', ['#9106,1,Gil,,'])
+	const noQtyCsv = writeHeaderCsv('orders-noqty.csv', 'Name,Lineitem sku,Billing Name,Paid at,Payment Method', ['#9107,SKU-A,Hana,,'])
+	service.sent.length = 0
+	const mixedOk = await service.importService.cacheFiles([goodCsv, noNameCsv, noSkuCsv, noQtyCsv])
+	const mixedToast = toasts(service.sent).find((toast) => toast.includes('Skipped file(s)'))
+	check('missing-column load still succeeds via the good file', mixedOk === true)
+	check('only the good file\'s rows import', service.importService.imports.length === 1 && service.importService.imports[0].name === '9105')
+	check('missing name column is no longer a silent 0-order load', !!mixedToast && mixedToast.includes('orders-noname.csv — missing column "Name"'), JSON.stringify(mixedToast))
+	check('missing sku column is skipped with the short reason', !!mixedToast && mixedToast.includes('orders-nosku.csv — missing column "Lineitem sku"'))
+	check('missing quantity column is skipped with the short reason', !!mixedToast && mixedToast.includes('orders-noqty.csv — missing column "Lineitem quantity"'))
+	check('skip notice points at the ⚙ Configure Import dialog on the Import Orders card', !!mixedToast && mixedToast.includes('Configure Import') && mixedToast.includes('Import Orders card'))
+	check('skipped files are excluded from the saved selection', service.settingsService.settings.imports.length === 1 && service.settingsService.settings.imports[0] === goodCsv)
+
+	// Every file skipped: the load fails cleanly and changes nothing.
+	await service.importService.cacheFiles([goodCsv])
+	service.sent.length = 0
+	const allSkippedOk = await service.importService.cacheFiles([noNameCsv])
+	const allSkippedToast = toasts(service.sent).find((toast) => toast.includes('No files could be read'))
+	check('all-missing-column load reports failure', allSkippedOk === false && service.importService.imports.length === 1 && service.importService.imports[0].name === '9105')
+	check('all-missing-column toast keeps the reason + guidance', !!allSkippedToast && allSkippedToast.includes('orders-noname.csv — missing column "Name"') && allSkippedToast.includes('Configure Import'))
+	check('failed load keeps the previous selection', service.settingsService.settings.imports.length === 1 && service.settingsService.settings.imports[0] === goodCsv)
+
+	// Console/log lists the file's ACTUAL headers so a mistyped mapping is diagnosable.
+	const loggedWarnings = []
+	const log = (await import('electron-log')).default
+	const originalWarn = log && typeof log.warn === 'function' ? log.warn : null
+	if (originalWarn) log.warn = (...args) => loggedWarnings.push(args.map(String).join(' '))
+	try {
+		await service.importService.cacheFiles([noNameCsv])
+	} finally {
+		if (originalWarn) log.warn = originalWarn
+	}
+	check('actual headers are logged for a skipped file', loggedWarnings.some((warning) => warning.includes('Actual headers:') && warning.includes('Lineitem sku, Lineitem quantity, Billing Name')), JSON.stringify(loggedWarnings))
+
+	// -- Missing billingName: SKIPPED like every other configured column (user rule: no match → no copy).
+	const columnsPrintDir = path.join(testRoot, 'print-files-columns')
+	fs.mkdirSync(columnsPrintDir, { recursive: true })
+	fs.writeFileSync(path.join(columnsPrintDir, 'sku-r7.png'), 'r7')
+	service.settingsService.setPrintFiles(columnsPrintDir)
+
+	const noBillingCsv = writeHeaderCsv('orders-nobilling.csv', 'Name,Lineitem sku,Lineitem quantity,Paid at,Payment Method', ['#9108,SKU-R7,2,,'])
+	service.sent.length = 0
+	const noBillingOk = await service.importService.cacheFiles([noBillingCsv])
+	const noBillingToast = toasts(service.sent).find((toast) => toast.includes('No files could be read'))
+	check('missing billing column skips the file (no copies)',
+		noBillingOk === false && !!noBillingToast && noBillingToast.includes('orders-nobilling.csv — missing column "Billing Name"'))
+	check('the skip guidance points at the Configure Import dialog', !!noBillingToast && noBillingToast.includes('Configure Import'))
+	check('refused load resets the parsing state (no stuck spinner)', lastStatus(service.sent)?.isParsing === false && lastStatus(service.sent)?.orderCount === service.importService.imports.length, JSON.stringify({ status: lastStatus(service.sent), cache: service.importService.imports.length }))
+
+	// Empty values (column present but blank) are NOT the same as a missing column.
+	const emptyBillingCsv = writeHeaderCsv('orders-emptybilling.csv', 'Name,Lineitem sku,Lineitem quantity,Billing Name,Paid at,Payment Method', ['#9108,SKU-R7,2,,,'])
+	check('blank values (not a missing column) still import',
+		await service.importService.cacheFiles([emptyBillingCsv]) === true && service.importService.imports.length === 1 && service.importService.imports[0].billingName === '')
+
+	const columnsOutputDir = path.join(testRoot, 'output-columns')
+	fs.mkdirSync(columnsOutputDir, { recursive: true })
+	service.settingsService.setPrintFolder(columnsOutputDir)
+	service.sent.length = 0
+	await new FileCopyService(service.settingsService, service.importService, service.events).processFiles()
+	const emptyBillingNames = fs.readdirSync(columnsOutputDir).sort()
+	check('blank billing value: copy names keep the empty segment', JSON.stringify(emptyBillingNames) === JSON.stringify(['9108--sku-r7---0-0.png', '9108--sku-r7---1-0.png']), JSON.stringify(emptyBillingNames))
+
+	// Copy pressed while the selection exists but nothing is loaded (e.g. a
+	// refused startup restore): the toast must describe the real problem
+	// instead of telling the user to import a file they can already see.
+	service.importService.deleteCache()
+	service.settingsService.setImports([emptyBillingCsv])
+	service.sent.length = 0
+	await new FileCopyService(service.settingsService, service.importService, service.events).processFiles()
+	check('copy with an unreadable selection explains what to fix', toasts(service.sent).some((toast) => toast.includes('couldn\'t be read') && toast.includes('Configure Import')))
+	service.settingsService.setImports([])
+	service.sent.length = 0
+	await new FileCopyService(service.settingsService, service.importService, service.events).processFiles()
+	check('copy with nothing selected keeps the original hint', toasts(service.sent).some((toast) => toast.includes('import at least one .CSV export first')))
+
+	// -- Stale-mapping gate: a mapping changed after the orders were loaded (its
+	//    re-read was refused) → Copy must refuse instead of copying the old
+	//    snapshot; restoring + reloading the mapping clears the block.
+	const gatePrintDir = path.join(testRoot, 'print-files-gate')
+	const gateOutputDir = path.join(testRoot, 'output-gate')
+	fs.mkdirSync(gatePrintDir, { recursive: true })
+	fs.mkdirSync(gateOutputDir, { recursive: true })
+	fs.writeFileSync(path.join(gatePrintDir, 'sku-a.png'), 'a')
+	service.settingsService.setPrintFiles(gatePrintDir)
+	service.settingsService.setPrintFolder(gateOutputDir)
+	service.settingsService.save({ csvColumns: { ...DEFAULT_COLUMNS } })
+	await service.importService.cacheFiles([csvA])
+	service.settingsService.save({ csvColumns: { ...DEFAULT_COLUMNS, sku: 'Wrong SKU' } })
+	service.sent.length = 0
+	await new FileCopyService(service.settingsService, service.importService, service.events).processFiles()
+	check('stale mapping: Copy refuses instead of copying the old snapshot',
+		toasts(service.sent).some((toast) => toast.includes('column mapping changed') && toast.includes('Configure Import')))
+	check('stale mapping: nothing was copied', fs.readdirSync(gateOutputDir).length === 0)
+	service.settingsService.save({ csvColumns: { ...DEFAULT_COLUMNS } })
+	await service.importService.cacheFiles([csvA])
+	service.sent.length = 0
+	await new FileCopyService(service.settingsService, service.importService, service.events).processFiles()
+	check('mapping restored + reloaded: Copy works again', fs.readdirSync(gateOutputDir).length === 1)
+
+	// -- Header-only (empty-data) CSV keeps today's path: kept, 0 orders — column check bypassed.
+	const emptyCsv = path.join(fixtureRoot, 'orders-empty.csv')
+	fs.writeFileSync(emptyCsv, 'Foo,Bar\n', 'utf-8')
+	service.sent.length = 0
+	const emptyOk = await service.importService.cacheFiles([emptyCsv])
+	check('header-only CSV is kept with 0 orders (not skipped)', emptyOk === true && service.importService.imports.length === 0)
+	check('header-only CSV lands in the saved selection', service.settingsService.settings.imports.length === 1 && service.settingsService.settings.imports[0] === emptyCsv)
+	check('header-only CSV produces no skip notice', !toasts(service.sent).some((toast) => toast.includes('orders-empty.csv')))
+
+	// -- Exact-match precedence: `Name` wins over `name` (today's key reads, first exact).
+	const bothNamesCsv = writeHeaderCsv('orders-both-names.csv', 'name,Name,Lineitem sku,Lineitem quantity,Billing Name,Paid at,Payment Method', ['wrong-9109,#9109,SKU-A,1,Ivy,,'])
+	check('mixed-case duplicate headers: load succeeds', await service.importService.cacheFiles([bothNamesCsv]) === true)
+	check('exact header wins over the case-variant duplicate', service.importService.imports.length === 1 && service.importService.imports[0].name === '9109')
+
+	// -- Copy-parity: defaults on the golden fixture → byte-identical destinations.
+	service.settingsService.save({ csvColumns: { ...DEFAULT_COLUMNS } })
+	const parityPrintDir = path.join(testRoot, 'print-files-parity')
+	const parityOutputDir = path.join(testRoot, 'output-parity')
+	fs.mkdirSync(parityPrintDir, { recursive: true })
+	fs.mkdirSync(parityOutputDir, { recursive: true })
+	fs.writeFileSync(path.join(parityPrintDir, 'SKU-A.png'), 'a')
+	fs.writeFileSync(path.join(parityPrintDir, 'sku-b.png'), 'b')
+	service.settingsService.setPrintFiles(parityPrintDir)
+	service.settingsService.setPrintFolder(parityOutputDir)
+	await service.importService.cacheFiles([csvA])
+	await new FileCopyService(service.settingsService, service.importService, service.events).processFiles()
+	const parityNames = fs.readdirSync(parityOutputDir).sort()
+	check('default config on the golden fixture yields the byte-identical destinations',
+		JSON.stringify(parityNames) === JSON.stringify(['1001-Alice-sku-a---0-0.png', '1002-Bob-sku-b---0-1.png', '1002-Bob-sku-b---1-1.png']), JSON.stringify(parityNames))
+}
+
+console.log('\n[15] Payment method + paid date (picked up from main)')
+{
+	// Fixture with the two columns main added: the second row (same order) has
+	// them empty and must inherit from the first row, like billing names.
+	const newColsCsv = path.join(fixtureRoot, 'orders-newcols.csv')
+	fs.writeFileSync(newColsCsv, 'Name,Lineitem sku,Lineitem quantity,Billing Name,Payment Method,Paid at\n' +
+		'#9301,SKU-NC,1,Nova,Credit Card,2026-07-20 10:00:00 +0000\n' +
+		'#9301,SKU-NC,1,,,\n', 'utf-8')
+
+	service.sent.length = 0
+	const ok = await service.importService.cacheFiles([newColsCsv])
+	check('file with payment/date columns imports', ok === true && service.importService.imports.length === 2)
+	check('payment method + paid date are read',
+		service.importService.imports[0].paymentMethod === 'Credit Card' && service.importService.imports[0].paidDate === '2026-07-20 10:00:00 +0000')
+	check('missing payment/date/billing values inherit from the last row of the order',
+		service.importService.imports[1].paymentMethod === 'Credit Card' && service.importService.imports[1].paidDate === '2026-07-20 10:00:00 +0000' && service.importService.imports[1].billingName === 'Nova')
+
+	// Copy names carry the segments (payment method lowercased, first space
+	// replaced; the colon in the date is sanitized to '_' like other reserved chars).
+	const newColsPrintDir = path.join(testRoot, 'print-files-newcols')
+	const newColsOutputDir = path.join(testRoot, 'output-newcols')
+	fs.mkdirSync(newColsPrintDir, { recursive: true })
+	fs.mkdirSync(newColsOutputDir, { recursive: true })
+	fs.writeFileSync(path.join(newColsPrintDir, 'sku-nc.png'), 'nc')
+	service.settingsService.setPrintFiles(newColsPrintDir)
+	service.settingsService.setPrintFolder(newColsOutputDir)
+	service.sent.length = 0
+	await new FileCopyService(service.settingsService, service.importService, service.events).processFiles()
+	const newColsNames = fs.readdirSync(newColsOutputDir).sort()
+	check('copy names carry the paid-date + payment-method segments',
+		JSON.stringify(newColsNames) === JSON.stringify(['9301-Nova-sku-nc-2026-07-20 10_00_00 +0000-credit_card-0-0.png', '9301-Nova-sku-nc-2026-07-20 10_00_00 +0000-credit_card-0-1.png']), JSON.stringify(newColsNames))
 }
 
 fs.rmSync(testRoot, { recursive: true, force: true })

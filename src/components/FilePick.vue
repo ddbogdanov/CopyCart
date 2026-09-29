@@ -28,17 +28,19 @@
 
 		<div class="file-status">
 			<slot name="status">
-				<template v-if="props.busy">
-					<i class="pi pi-spin pi-spinner" />
-					<p class="file-name">{{ props.busyLabel }}</p>
-				</template>
-				<template v-else-if="fileName">
-					<i class="pi pi-check-circle" />
-					<p class="file-name" v-tooltip.top="props.path">{{ fileName }}</p>
-					<Button icon="pi pi-times" severity="danger" variant="text" size="small" rounded
-							class="clear-button" v-tooltip.top="'Clear selection'" @click="onClear"/>
-				</template>
-				<p v-else class="file-name placeholder">No file selected</p>
+				<StatusLine v-if="props.busy">
+					<template #leading><i class="pi pi-spin pi-spinner" /></template>
+					{{ props.busyLabel }}
+				</StatusLine>
+				<StatusLine v-else-if="fileName">
+					<template #leading><i class="pi pi-check-circle" /></template>
+					<span v-tooltip.top="props.path">{{ fileName }}</span>
+					<template #trailing>
+						<Button icon="pi pi-times" severity="danger" variant="text" size="small" rounded
+								v-tooltip.top="'Clear selection'" @click="onClear"/>
+					</template>
+				</StatusLine>
+				<StatusLine v-else placeholder>No file selected</StatusLine>
 			</slot>
 		</div>
 	</div>
@@ -48,6 +50,7 @@
 import { computed, ref } from 'vue'
 import type { PropType } from 'vue'
 import { ipc } from '../ipc'
+import StatusLine from './StatusLine.vue'
 import type { DialogFilter, DialogKind, DialogProperty } from '../../shared/ipc'
 
 /**
@@ -263,8 +266,6 @@ function onClear() {
 .file-status {
 	display: flex;
 	align-items: center;
-	justify-content: center;
-	gap: 6px;
 
 	width: 100%;
 	min-height: 34px;
@@ -272,31 +273,5 @@ function onClear() {
 	// can consume the card; the slot content scrolls internally (→ ImportOrders).
 	flex-shrink: 1;
 	overflow: hidden;
-
-	> i {
-		font-size: 13px;
-		color: var(--p-primary-500);
-		flex-shrink: 0;
-	}
-
-	.file-name {
-		margin: 0;
-		font-size: 12px;
-		color: var(--p-surface-400);
-
-		max-width: 100%;
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-
-	.file-name.placeholder {
-		opacity: 0.7;
-	}
-
-	.clear-button {
-		padding: 0;
-		flex-shrink: 0;
-	}
 }
 </style>

@@ -16,6 +16,7 @@
 				<ImportOrders title="Import Orders" :file-paths="settings.imports"
 							  titleToolTip="Accepts .CSV files containing order info."
 							  class="component-border--primary import-orders-card"
+							  @configure-import="openCsvColumns"
 				/>
 
 				<FilePick title="Print Files"
@@ -83,6 +84,8 @@
 		<Drawer header="Settings" class="settings-drawer" position="right" v-model:visible="settingsVisible" @hide="onCloseSettings" style="width: 60vw;">
 			<SettingsForm :settings="settings" @onUpdateTheme="onUpdateTheme" @onSaveSettings="onSaveSettings"/>
 		</Drawer>
+
+		<CsvColumnsDialog v-model:visible="csvDialogVisible" :columns="settings.csvColumns" @save="onSaveCsvColumns" />
 	</div>
 </template>
 
@@ -97,6 +100,8 @@ import CheckList from './components/CheckList.vue'
 import Toast from 'primevue/toast'
 import { useToast } from 'primevue/usetoast';
 import SettingsForm from './components/SettingsForm.vue'
+import CsvColumnsDialog from './components/CsvColumnsDialog.vue'
+import type { CsvColumns } from '../shared/ipc'
 import { ipc } from './ipc'
 
 const toast = useToast();
@@ -106,6 +111,7 @@ const status = ref('Select files to import')
 const version = ref(__APP_VERSION__)
 const maximizeIcon = ref('pi pi-chevron-up')
 const settingsVisible = ref(false)
+const csvDialogVisible = ref(false)
 const settings = ref({
 	shouldSave: {
 		imports: false,
@@ -116,7 +122,15 @@ const settings = ref({
 	printFiles: '',
 	printFolder: '',
 	recursivePrintFiles: false,
-	themeColor: '#10b981'
+	themeColor: '#10b981',
+	csvColumns: {
+		orderName: 'Name',
+		sku: 'Lineitem sku',
+		quantity: 'Lineitem quantity',
+		billingName: 'Billing Name',
+		paidDate: 'Paid at',
+		paymentMethod: 'Payment Method'
+	}
 })
 let backupSettings = {
 	shouldSave: {
@@ -128,7 +142,15 @@ let backupSettings = {
 	printFiles: '',
 	printFolder: '',
 	recursivePrintFiles: false,
-	themeColor: '#10b981'
+	themeColor: '#10b981',
+	csvColumns: {
+		orderName: 'Name',
+		sku: 'Lineitem sku',
+		quantity: 'Lineitem quantity',
+		billingName: 'Billing Name',
+		paidDate: 'Paid at',
+		paymentMethod: 'Payment Method'
+	}
 }
 
 onMounted(() => {
@@ -182,6 +204,29 @@ function onToggleRecursive(value: boolean | undefined) {
 function openSettings() {
 	backupSettings = JSON.parse(JSON.stringify(settings.value))
 	settingsVisible.value = true
+}
+
+/** Import Orders cog → the CSV column mapping dialog (single entry point). */
+function openCsvColumns() {
+	csvDialogVisible.value = true
+}
+
+/**
+ * Persists the edited column mapping (write-through). On a failed save the
+ * change is reverted so the UI always reflects what is stored.
+ */
+function onSaveCsvColumns(columns: CsvColumns) {
+	const previous = settings.value.csvColumns
+	settings.value.csvColumns = columns
+	// Deep clone — reactive proxies cannot cross the IPC boundary.
+	ipc.saveSettings(JSON.parse(JSON.stringify(settings.value))).then((saved) => {
+		if (saved === true) {
+			csvDialogVisible.value = false
+			return
+		}
+		settings.value.csvColumns = previous
+		console.error('Failed to save the CSV column names.')
+	})
 }
 function onSaveSettings(settings: any) {
 	backupSettings = settings

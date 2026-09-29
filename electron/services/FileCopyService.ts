@@ -49,7 +49,17 @@ export class FileCopyService {
 		}
 
 		if (!this.importService.imports.length) {
-			this.events.send('toast', 'No orders loaded \u2014 import at least one .CSV export first.')
+			const hasSelection = this.settingsService.settings.imports.length > 0
+			this.events.send('toast', hasSelection
+				? 'No orders loaded \u2014 the selected file(s) couldn\'t be read. Re-import them, or fix the column mapping in the \u2699 "Configure Import" dialog, then try again.'
+				: 'No orders loaded \u2014 import at least one .CSV export first.')
+			return false
+		}
+
+		// A saved mapping change whose re-read was refused leaves the OLDER
+		// orders loaded — copying them would contradict "no match → no copy".
+		if (this.importService.mappingChangedSinceLoad) {
+			this.events.send('toast', 'The column mapping changed since these orders were loaded \u2014 fix the mapping in \u2699 "Configure Import" and save (or re-import the files) so the orders reload, then try again.')
 			return false
 		}
 
@@ -85,7 +95,10 @@ export class FileCopyService {
 			const copyPromises = new Array<Promise<void>>()
 
 			for(let i = 0; i < quantity; i++) {
-				const destPath = path.join(settings.printFolder, sanitizePath(`${order.name}-${order.billingName}-${order.sku}-${i}-${index}${ext}`))
+				// Name formula picked up from main: the paid date and the payment
+				// method are part of the destination name (empty segments when the
+				// export has no such columns).
+				const destPath = path.join(settings.printFolder, sanitizePath(`${order.name}-${order.billingName}-${order.sku}-${order.paidDate ?? ''}-${(order.paymentMethod ?? '').toLowerCase().replace(' ', '_')}-${i}-${index}${ext}`))
 				destinations.push(destPath)
 
 				console.log(`Copying: ${matchedOrder} --to--> ${destPath}`)
