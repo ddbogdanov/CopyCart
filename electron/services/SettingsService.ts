@@ -48,9 +48,8 @@ function sanitizeCsvColumn(value: unknown, fallback: string): string {
 }
 
 /**
- * electron-store does not deep-merge nested defaults, so `csvColumns` is merged
- * per key — a partial (or hand-edited) stored object can never produce a
- * half-defined mapping, and blank values mean "use the shipped default".
+ * Merged per key — electron-store doesn't deep-merge nested defaults; blank or
+ * wrong-typed values fall back to their default.
  */
 function normalizeCsvColumns(value: unknown): CsvColumns {
 	const stored = (value && typeof value === 'object') ? value as Record<string, unknown> : {}
@@ -85,9 +84,8 @@ function sanitizeThemeColor(value: unknown): string {
 }
 
 /**
- * Owns the persisted application settings: electron-store lifecycle, the one-time
- * migration from the legacy `settings.json`, load/save, and the print-path
- * setters/clear flows used by the renderer.
+ * Owns persisted settings: electron-store lifecycle, one-time migration from the
+ * legacy `settings.json`, load/save, and the write-through mutators.
  */
 export class SettingsService {
 	private store?: Store<PersistedSettings>
@@ -171,9 +169,8 @@ export class SettingsService {
 	}
 
 	/**
-	 * Mutates the imported file list without broadcasting — the import flow
-	 * (ImportService) owns its own `settings:update` events — but persists
-	 * immediately so a crash or force-kill never loses the selection.
+	 * Persists the import list without broadcasting (ImportService owns the
+	 * `settings:update` events) so a crash never loses the selection.
 	 */
 	setImports(imports: string[]) {
 		this.currentSettings.imports = imports
@@ -201,10 +198,7 @@ export class SettingsService {
 		return true;
 	}
 
-	/**
-	 * One-time migration of the legacy hand-written `<userData>/settings.json`
-	 * (used by app versions <= 1.4.x) into the electron-store file.
-	 */
+	/** One-time migration of the legacy `<userData>/settings.json` into the store. */
 	private migrateLegacySettings(): void {
 		const store = this.store
 		if (!store) return
@@ -263,10 +257,8 @@ export class SettingsService {
 		const store = this.store
 		if (!store) return structuredClone(DEFAULT_SETTINGS)
 
-		// electron-store does not deep-merge nested defaults, so `shouldSave` is
-		// merged per key — and every value is re-typed on read: `clearInvalidConfig`
-		// only catches invalid JSON, so a hand-edited (or older) store could
-		// otherwise leak wrong-typed values into the app.
+		// Values are re-typed on read — clearInvalidConfig only catches invalid
+		// JSON, so a hand-edited store could otherwise leak wrong-typed values.
 		const storedShouldSave = { ...DEFAULT_SETTINGS.shouldSave, ...(store.get('shouldSave') ?? {}) }
 		return {
 			shouldSave: {

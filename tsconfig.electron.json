@@ -2,9 +2,8 @@
   "extends": "./tsconfig.node.json",
   "compilerOptions": {
     "outDir": "out/electron",
-    // No "rootDir": the shared IPC contract (shared/ipc.ts) intentionally lives
-    // outside electron/. This config is type-check only (noEmit inherited); the
-    // emit/bundle layout for packaging is owned by the build step.
+    // No "rootDir" — shared/ intentionally lives outside electron/; this config
+    // is type-check only, packaging layout is owned by the build step.
     "module": "ESNext",
     "target": "ES2020",
     "sourceMap": true,

@@ -22,6 +22,8 @@ let mainWindow: BrowserWindow
 
 app.setName('Copy Cart')
 
+// Dev-only heads-up: `net session` only succeeds when elevated, and an
+// elevated window never receives Explorer drag & drop (Windows UIPI).
 if (!app.isPackaged && process.platform === 'win32') {
 	try {
 		execFileSync('net', ['session'], { stdio: 'ignore', windowsHide: true })

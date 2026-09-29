@@ -54,10 +54,7 @@
 import { computed, ref, watch } from 'vue'
 import type { CsvColumns } from '../../shared/ipc'
 
-/**
- * The fixed set of fields the importer reads — only the CSV header each field
- * is matched against is editable (never the field set itself).
- */
+/** The fixed fields the importer reads — only the header name is editable. */
 const FIELDS: ReadonlyArray<{ key: keyof CsvColumns; label: string; help: string }> = [
 	{ key: 'orderName', label: 'Order name', help: 'Used in copy file names' },
 	{ key: 'sku', label: 'SKU', help: 'Matches print files to order lines' },
@@ -80,10 +77,7 @@ const DEFAULT_COLUMNS: CsvColumns = {
 const props = defineProps<{ visible: boolean; columns: CsvColumns }>()
 const emit = defineEmits<{ 'update:visible': [visible: boolean]; 'save': [columns: CsvColumns] }>()
 
-/**
- * Local deep copy — Cancel / ✕ / Esc / overlay-click discard it outright;
- * a fresh snapshot is taken every time the dialog opens.
- */
+/** Local draft — discarded on Cancel/✕/Esc/overlay; re-snapshotted on open. */
 const draft = ref<CsvColumns>({ ...DEFAULT_COLUMNS })
 
 watch(() => props.visible, (visible) => {
@@ -122,8 +116,7 @@ const duplicateNotices = computed<Partial<Record<keyof CsvColumns, string>>>(() 
 })
 
 function save() {
-	// Trim + blank→default here AND in SettingsService — the store never holds
-	// a value its placeholder would contradict.
+	// Trim + blank → default (also enforced in SettingsService).
 	const edited: CsvColumns = {
 		orderName: (draft.value.orderName ?? '').trim() || DEFAULT_COLUMNS.orderName,
 		sku: (draft.value.sku ?? '').trim() || DEFAULT_COLUMNS.sku,
@@ -140,7 +133,7 @@ function close() {
 }
 
 function onVisibleChange(visible: boolean) {
-	// PrimeVue emits this for ✕ / Esc / overlay clicks — identical to Cancel.
+	// ✕ / Esc / overlay clicks = Cancel.
 	emit('update:visible', visible)
 }
 </script>
@@ -223,9 +216,8 @@ function onVisibleChange(visible: boolean) {
 	}
 }
 
-/* Fixed cushion between the scrollable fields and the footer buttons — on the
-   footer itself, so it shows at EVERY scroll position (not only at the end of
-   the scroll content). Needs `:global` (the dialog root carries no scope id). */
+/* Cushion on the footer itself so it shows at every scroll position; `:global`
+   is required (dialog roots carry no scope id). */
 :global(.csv-columns-dialog .p-dialog-footer) {
 	margin-top: 20px;
 }

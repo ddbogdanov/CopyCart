@@ -24,11 +24,8 @@ const INSTALL_DELAY_MS = 1500
 type SimulationMode = 'prompt' | 'auto' | 'fail'
 
 /**
- * `UPDATE_SIMULATE=1|auto|fail` fakes the update flow in development so the
- * update window can be previewed without publishing a release:
- *   1     — real prompt, then simulated download
- *   auto  — skips the prompt, goes straight to the update window
- *   fail  — stops at ~40% with the error state
+ * `UPDATE_SIMULATE=1|auto|fail` fakes the update flow in development:
+ * 1 = prompt then simulated download, auto = skip the prompt, fail = error at ~40%.
  */
 function parseSimulationMode(value: string | undefined): SimulationMode | undefined {
 	if (value === '1') return 'prompt'
@@ -37,12 +34,11 @@ function parseSimulationMode(value: string | undefined): SimulationMode | undefi
 }
 
 /**
- * Owns the whole application-update flow: startup check, the user prompt, the
- * dedicated update window (progress/error monitoring) and the install+restart.
+ * Owns the update flow: startup check, user prompt, update window
+ * (progress/error) and install+restart.
  *
- * Updates never start on their own: `autoDownload` and `autoInstallOnAppQuit`
- * are both disabled, so nothing is downloaded or installed without the user
- * accepting the prompt, and a declined update is asked about again next launch.
+ * Nothing downloads or installs without the user accepting the prompt; a
+ * declined update is offered again on the next launch.
  */
 export class UpdateService {
 	private mainWindow?: BrowserWindow
@@ -58,21 +54,16 @@ export class UpdateService {
 	constructor() {
 		this.simulation = app.isPackaged ? undefined : parseSimulationMode(process.env.UPDATE_SIMULATE)
 
-		// Log to file (<userData>/logs/main.log) as well as the console — console
-		// output is invisible in packaged builds, and updater failures in the
-		// field need to be diagnosable.
+		// Log to <userData>/logs/main.log — console output is invisible in packaged builds.
 		autoUpdater.logger = log
 
-		// Updates only ever run through the explicit prompt + update window flow.
+		// Nothing downloads or installs without the explicit prompt flow.
 		autoUpdater.autoDownload = false
 		autoUpdater.autoInstallOnAppQuit = false
 
-		// Update failures must never be silent: electron-updater's own catch
-		// paths only `emit('error')` (they don't log it), and an unobserved
-		// 'error' event throws — without a listener a failed check (offline,
-		// release metadata missing, ...) leaves no trace anywhere. It also
-		// turns the unguarded `dispatchError` inside downloadUpdate() into a
-		// rejection instead of a synchronous throw.
+		// electron-updater only emits 'error' (it never logs), and an unobserved
+		// 'error' event throws — this listener logs failures and turns them into
+		// ordinary rejections for downloadUpdate().
 		autoUpdater.on('error', (error) => {
 			log.error('[UpdateService] Updater error:', error)
 		})
@@ -86,10 +77,7 @@ export class UpdateService {
 		this.mainWindow = mainWindow
 	}
 
-	/**
-	 * Startup check (packaged builds only). Runs once per launch — when an
-	 * update is available the user is prompted and decides whether to download.
-	 */
+	/** Startup check (packaged builds only); prompts before anything downloads. */
 	checkForUpdates() {
 		// Once per launch (`did-finish-load` can fire again on a page reload).
 		if (this.hasChecked) return
@@ -109,8 +97,7 @@ export class UpdateService {
 		}
 
 		log.info('[UpdateService] Checking for updates…')
-		// Failures during the check (offline, release metadata missing, ...) are
-		// logged by the 'error' listener above; the app stays usable.
+		// Check failures are logged by the 'error' listener above; the app stays usable.
 		autoUpdater.checkForUpdates().catch(() => {})
 	}
 
@@ -146,8 +133,7 @@ export class UpdateService {
 	private startDownload(version: string) {
 		if (this.state !== 'idle') return
 
-		// A fresh flow starts uncancelled — an aborted or cancelled previous
-		// flow may have left the flag set.
+		// Clear any leftover cancel flag from an aborted previous flow.
 		this.cancelRequested = false
 		this.state = 'downloading'
 		this.createUpdateWindow(version)
@@ -189,8 +175,7 @@ export class UpdateService {
 		const win = new BrowserWindow(options)
 		this.updateWindow = win
 
-		// Frameless child windows otherwise land wherever Windows decides —
-		// center it over the main window.
+		// Frameless windows land wherever Windows decides — center it over the parent.
 		if (parent) {
 			const parentBounds = parent.getBounds()
 			const { width, height } = win.getBounds()
@@ -200,14 +185,11 @@ export class UpdateService {
 			)
 		}
 
-		// The application must not be usable while the update is running: the
-		// modal (and this explicit disable) block the main window until the
-		// window closes.
+		// Keep the app unusable while the update runs (modal + explicit disable).
 		if (parent) parent.setEnabled(false)
 
 		win.on('close', (event) => {
-			// The download must go through the Cancel button (or the error
-			// state) — closing the window is not a way out mid-download.
+			// Mid-download the only ways out are Cancel or the error state.
 			if (this.state === 'downloading') event.preventDefault()
 		})
 		win.on('closed', () => this.onUpdateWindowClosed())
@@ -215,17 +197,14 @@ export class UpdateService {
 		win.webContents.on('did-finish-load', () => {
 			if (this.latestStatus) win.webContents.send(UPDATE_STATUS_CHANNEL, this.latestStatus)
 		})
-		// A window that cannot render the flow must not trap the user: the modal
-		// keeps the main window disabled and the close handler vetoes closing
-		// mid-download, so without these the app would only be escapable by a
-		// force kill. abortUpdateWindow hands control back instead.
+		// If the window cannot render the flow, hand control back instead of
+		// trapping the user (see abortUpdateWindow).
 		win.webContents.on('preload-error', (_event, preloadPath, error) => {
 			log.error('[UpdateService] Update window preload error:', preloadPath, error)
 			this.abortUpdateWindow('the update window failed to initialise (preload error)')
 		})
 		win.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
-			// ERR_ABORTED (-3) is reported for a load that was superseded (e.g.
-			// the app is quitting) — not a real failure.
+			// ERR_ABORTED (-3) means the load was superseded (e.g. quitting) — not a failure.
 			if (!isMainFrame || errorCode === -3) return
 			log.error('[UpdateService] Update window failed to load:', errorCode, errorDescription, validatedURL)
 			this.abortUpdateWindow(`the update window failed to load (${errorDescription})`)
@@ -243,11 +222,9 @@ export class UpdateService {
 	}
 
 	/**
-	 * The update window cannot present the flow (failed load / failed preload):
-	 * stop the download and hand control back to the user instead of trapping
-	 * them behind a blank modal — the main window is disabled and its close is
-	 * vetoed mid-download, so without this the only way out would be a force
-	 * kill. The update is offered again on the next launch.
+	 * Load/preload failure path: cancel the download and hand control back so a
+	 * blank modal can never trap the user (main window disabled, close vetoed).
+	 * The update is offered again on the next launch.
 	 */
 	private abortUpdateWindow(reason: string) {
 		const win = this.updateWindow
@@ -255,14 +232,13 @@ export class UpdateService {
 
 		log.error(`[UpdateService] Aborting the update flow — ${reason}.`)
 
-		// Mark the in-flight download's rejection as intentional so it stays
-		// quiet; closing the window also clears the simulation timer.
+		// Keep the pending rejection quiet — it is intentional; closing the
+		// window also clears the simulation timer.
 		this.cancelRequested = true
 		this.downloadCancellationToken?.cancel()
 		this.teardownUpdateWindow()
 
-		// Silently reverting to the normal UI would look like nothing happened —
-		// tell the user the accepted update was cancelled and will come back.
+		// Tell the user the accepted update was cancelled and will come back next launch.
 		const parent = this.mainWindow && !this.mainWindow.isDestroyed() ? this.mainWindow : undefined
 		const options: MessageBoxOptions = {
 			type: 'error',
@@ -292,8 +268,7 @@ export class UpdateService {
 		log.info('[UpdateService] Update downloaded — installing and restarting.')
 		this.sendStatus({ phase: 'installing' })
 
-		// `quitAndInstall(true, true)`: silent install, then relaunch the new
-		// version automatically (the installer reopens the app after finishing).
+		// quitAndInstall(true, true) = silent install, then relaunch.
 		setTimeout(() => {
 			try {
 				autoUpdater.quitAndInstall(true, true)
@@ -359,8 +334,8 @@ export class UpdateService {
 		this.latestStatus = null
 		this.downloadCancellationToken = undefined
 
-		// Unless the app is quitting to install, hand control back to the user.
-		// (In simulation nothing ever quits, so always restore there.)
+		// Hand control back to the user — except while quitting to install
+		// (simulation never quits, so always restore there).
 		if (this.state !== 'installing' || this.simulation) {
 			this.state = 'idle'
 			const parent = this.mainWindow
@@ -373,8 +348,7 @@ export class UpdateService {
 		let percent = 0
 
 		this.simulationTimer = setInterval(() => {
-			// Consume Cancel so the dev preview behaves like the real flow
-			// (there is no cancellation token to reject in simulation).
+			// No token in simulation — consume the Cancel flag here instead.
 			if (this.cancelRequested) {
 				this.cancelRequested = false
 				if (this.simulationTimer) clearInterval(this.simulationTimer)

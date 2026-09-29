@@ -6,8 +6,8 @@ import type { SettingsService } from './SettingsService.ts'
 import type { ImportService } from './ImportService.ts'
 
 /**
- * Copies the selected print files into the output folder (one copy per ordered
- * quantity), streaming progress updates to the renderer.
+ * Copies one file per ordered quantity into the print folder, streaming
+ * progress updates to the renderer.
  */
 export class FileCopyService {
 	private fileCache: Map<string, string> = new Map()
@@ -52,8 +52,7 @@ export class FileCopyService {
 			return false
 		}
 
-		// A saved mapping change whose re-read was refused leaves the OLDER
-		// orders loaded — copying them would contradict "no match → no copy".
+		// Mapping changed since load — copying stale orders would contradict "no match → no copy".
 		if (this.importService.mappingChangedSinceLoad) {
 			this.events.send('toast', 'The column mapping changed since these orders were loaded \u2014 fix the mapping in \u2699 "Configure Import" and save (or re-import the files) so the orders reload, then try again.')
 			return false
@@ -155,8 +154,7 @@ export class FileCopyService {
 			const keptPath = this.fileCache.get(baseName)
 			if (keptPath) {
 				collisions++
-				// The shallowest file wins (the listing is breadth-first): a top-level
-				// file overrides one with the same name inside a subfolder.
+				// Shallowest file wins (breadth-first listing) on name collisions.
 				console.warn(`Print files share the name "${baseName}" — keeping ${path.relative(printFilesPath, keptPath)} and ignoring ${path.relative(printFilesPath, filePath)}.`)
 				continue
 			}
@@ -170,9 +168,8 @@ export class FileCopyService {
 	}
 
 	/**
-	 * Lists candidate print files breadth-first, so directories closer to the
-	 * selected root are always visited first (the collision policy keeps the
-	 * first). Subfolders are only descended into when the recursive setting is on.
+	 * Lists candidate print files breadth-first (the collision policy keeps the
+	 * first). Subfolders only when the recursive setting is on.
 	 */
 	private async collectPrintFiles(root: string, recursive: boolean): Promise<string[]> {
 		const files: string[] = []

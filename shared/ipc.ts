@@ -1,18 +1,12 @@
 /**
  * Single source of truth for the renderer <-> main process IPC contract.
- *
- * Types only — safe to import (type-only) from the renderer, the preload script
- * and the main process. No runtime code, so it works with Node's type stripping
- * and never ends up in a bundle.
+ * Types only (no runtime code) — safe to import from anywhere.
  */
 
 /**
- * CSV header names the importer matches for each known field.
- *
- * The field set itself is fixed (order name, SKU, quantity, billing name, paid date, payment method) —
- * users only edit which header text each field is read from, so a renamed
- * export column keeps working. Blank values fall back to the shipped defaults
- * (SettingsService sanitizes on read and save).
+ * CSV header names the importer matches for each fixed field — users only edit
+ * which header text each field is read from. Blank values fall back to the
+ * shipped defaults (sanitized on read and save).
  */
 export type CsvColumns = {
 	/** Column holding the order name (drives the copy file names). */
@@ -129,11 +123,7 @@ export type IpcHandlers = {
 /** The API surface exposed to the renderer via `contextBridge`. */
 export type ElectronApi = {
 	openFileDialog: (request: OpenDialogRequest) => Promise<string[]>
-	/**
-	 * Absolute path of a dropped file. `File` is a DOM type, so the parameter
-	 * is typed structurally — the preload passes the real object to
-	 * `webUtils.getPathForFile`.
-	 */
+	/** Absolute path of a dropped file (passed to `webUtils.getPathForFile`). */
 	getPathForFile: (file: { name: string; size: number; type: string }) => string
 	deleteCache: () => Promise<void>
 	cacheImportFiles: (filePaths: string[]) => Promise<boolean>

@@ -54,10 +54,9 @@ import StatusLine from './StatusLine.vue'
 import type { DialogFilter, DialogKind, DialogProperty } from '../../shared/ipc'
 
 /**
- * Generic file/folder pick card: header, clickable (and optionally
- * drop-target) zone, and a status row showing the current selection with a
- * clear button. The selected value is driven by the `path` prop (settings are
- * the single source of truth in this app), so it also shows after a relaunch.
+ * Generic pick card: header, clickable (and optionally drop-target) zone, and a
+ * status row showing the selection. The `path` prop carries the current value
+ * (settings), so the display can survive a relaunch.
  */
 const props = defineProps({
 	title: String,
@@ -88,8 +87,7 @@ const fileName = computed(() => {
 })
 
 const isDragging = ref(false)
-// Counter so moving between the card's children (header/dropzone/status) keeps
-// the dragging state — plain enter/leave pairs flicker without it.
+// Depth counter — enter/leave pairs between the card's children would flicker.
 let dragDepth = 0
 
 async function pick() {
@@ -162,8 +160,7 @@ function onClear() {
 
 	padding: 10px;
 
-	// Whole card is the drop target — highlight the dropzone while files hover
-	// anywhere over the card (header, status row, or padding).
+	// Whole card is the drop target — highlight the dropzone on hover.
 	&.is-dragging .dropzone {
 		border-color: var(--p-primary-500);
 		border-style: solid;
@@ -190,15 +187,13 @@ function onClear() {
 
 .dropzone {
 	flex-grow: 1;
-	// Yields its surplus first: when the status area below grows, the dropzone
-	// shrinks toward its minimum before anything else gives up space.
+	// Yields surplus first so a growing status area compresses the dropzone.
 	flex-shrink: 999;
-	// Low floor (icon + label still fit); the hint hides itself below via the
-	// container query so the compressed box never spills.
+	// Low floor; the hint hides below via the container query.
 	min-height: 64px;
 
-	// Size containment: the dropzone contributes only its floor (not its
-	// content height) to the card's minimum, keeping tight windows usable.
+	// Size containment — contributes only the floor (not its content height) to
+	// the card's minimum, keeping tight windows usable.
 	container-type: size;
 
 	display: flex;
@@ -224,7 +219,7 @@ function onClear() {
 		pointer-events: none;
 	}
 
-	// Hide the hint first when the box is compressed (container query).
+	// Hide the hint first when compressed.
 	@container (max-height: 86px) {
 		.dropzone-hint {
 			display: none;
@@ -269,8 +264,7 @@ function onClear() {
 
 	width: 100%;
 	min-height: 34px;
-	// Shrinkable (after the dropzone's surplus is gone) so a growing file list
-	// can consume the card; the slot content scrolls internally (→ ImportOrders).
+	// Shrinkable so a growing file list can take over; slot content scrolls internally.
 	flex-shrink: 1;
 	overflow: hidden;
 }

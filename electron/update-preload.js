@@ -1,8 +1,6 @@
 // @ts-check
-//
-// Preload bridge for the update window — exposes the typed `window.updateWindow`
-// surface to the update renderer. Channel names and payloads are checked
-// against the shared IPC contract (shared/ipc.ts) at compile time.
+// Preload bridge for the update window — checked against the shared IPC
+// contract (shared/ipc.ts).
 const { contextBridge, ipcRenderer } = require('electron')
 
 /** @typedef {import('../shared/ipc').UpdateWindowApi} UpdateWindowApi */
@@ -11,8 +9,7 @@ const { contextBridge, ipcRenderer } = require('electron')
 /** @typedef {import('electron').IpcRendererEvent} IpcRendererEvent */
 
 /**
- * Typed wrapper around `ipcRenderer.invoke` — the channel literal is validated
- * against the shared IPC contract.
+ * Typed `ipcRenderer.invoke` — the channel must exist in the IPC contract.
  * @template {keyof IpcRequests} K
  * @param {K} channel
  * @returns {Promise<any>}

@@ -75,8 +75,7 @@ const orderCount = ref(0)
 const fileNames = computed(() => props.filePaths.map((filePath) => filePath.replace(/\\/g, '/').split('/').pop() ?? ''))
 
 onMounted(() => {
-    // Only this component listens on 'import:status' — App owns the other
-    // channels (the preload replaces listeners per channel).
+    // Sole 'import:status' listener — the preload replaces listeners per channel.
     ipc.onImportStatus((status) => {
         isParsing.value = status.isParsing
         if (!status.isParsing && typeof status.orderCount === 'number') orderCount.value = status.orderCount
@@ -84,8 +83,6 @@ onMounted(() => {
 })
 
 function onDropFiles(filePaths: string[]) {
-    // TODO: surface parse failures as a clean error message once CSV error
-    // handling lands (unreadable files are reported by toast + console).
     ipc.cacheImportFiles(filePaths).catch((error) => console.error(error))
 }
 
@@ -94,7 +91,7 @@ function onClear() {
 }
 
 function onConfigureImport() {
-    // App owns the dialog + persistence — this card only opens it.
+    // App owns the dialog and persistence.
     emit('configure-import')
 }
 

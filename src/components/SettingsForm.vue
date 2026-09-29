@@ -110,8 +110,7 @@ function onPreviewTheme() {
     emit('onUpdateTheme', '#' + colorSelection.value)
 }
 function onSaveSettings() {
-	// Save always takes the picker's current color — even when Preview was
-	// never clicked — and applies it so the UI matches what is persisted.
+	// Persist the picker's current color (Preview may never have been clicked).
 	const color = '#' + colorSelection.value
 	props.settings.themeColor = color
 	emit('onUpdateTheme', color)
@@ -119,8 +118,8 @@ function onSaveSettings() {
 }
 function formatLabel(key: string) {
   return key
-    .replace(/([A-Z])/g, ' $1') // add space before capital letters
-    .replace(/^./, str => str.toUpperCase()) // capitalize first letter
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/^./, str => str.toUpperCase())
 }
 
 function onOpenDevTools(event: any) {

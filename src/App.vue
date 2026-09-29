@@ -39,7 +39,7 @@
 								aria-label="Search inside subfolders for print files"
 								v-tooltip.top="recursiveTooltip"
 								@update:model-value="onToggleRecursive">
-							<!-- Default slot replaces the built-in "Yes"/"No" label so the symbol stays centered. -->
+							<!-- Default slot replaces the built-in Yes/No label (keeps the icon centered). -->
 							<i class="p-togglebutton-icon pi pi-sitemap" />
 						</ToggleButton>
 					</template>
@@ -183,10 +183,7 @@ function deletePrintFolder() {
 /** Tooltip doubles as a state readout: "Search inside subfolders: Yes/No". */
 const recursiveTooltip = computed(() => `Search inside subfolders: ${settings.value.recursivePrintFiles ? 'Yes' : 'No'}`)
 
-/**
- * Recursive print-file search toggle: persists through the settings store and
- * reverts on a failed save so the button always reflects what is stored.
- */
+/** Persists via the settings store; reverts on a failed save. */
 function onToggleRecursive(value: boolean | undefined) {
 	const next = value === true
 	const previous = settings.value.recursivePrintFiles
@@ -211,10 +208,7 @@ function openCsvColumns() {
 	csvDialogVisible.value = true
 }
 
-/**
- * Persists the edited column mapping (write-through). On a failed save the
- * change is reverted so the UI always reflects what is stored.
- */
+/** Persists the edited mapping (write-through); reverts on a failed save. */
 function onSaveCsvColumns(columns: CsvColumns) {
 	const previous = settings.value.csvColumns
 	settings.value.csvColumns = columns
@@ -261,9 +255,8 @@ function onUpdateTheme(color: any) {
 		950: primaries['950']
 	})
 
-	// Content sitting on primary surfaces (the colored top bar, filled
-	// buttons...) must stay readable for ANY chosen color — pick a dark or
-	// light contrast color by luminance instead of a fixed value.
+	// Content on primary surfaces (top bar, filled buttons) must stay readable for
+	// ANY color — pick a dark/light contrast color by luminance.
 	document.documentElement.style.setProperty('--p-primary-contrast-color', contrastColorFor(color))
 }
 
@@ -296,11 +289,10 @@ function shouldProcessBeDisabled() {
 
 <style scoped lang="scss">
 	.recursive-toggle {
-		// Alignment only — sizing and icon centering come from the component's
-		// own design tokens (overriding width/height/padding clips the icon).
+		// Alignment only — width/height overrides clip the icon.
 		margin-left: auto;
 
-		// Off: no chrome — blend into the card background (all theme tokens).
+		// Off: blend into the card background.
 		--p-togglebutton-background: transparent;
 		--p-togglebutton-border-color: transparent;
 		--p-togglebutton-icon-color: var(--p-surface-500);
@@ -311,8 +303,7 @@ function shouldProcessBeDisabled() {
 		--p-togglebutton-checked-background: var(--p-surface-950);
 		--p-togglebutton-checked-border-color: var(--p-surface-950);
 		--p-togglebutton-icon-checked-color: var(--p-primary-300);
-		// Aura paints the inner content span as a raised pill when checked —
-		// flatten it so the pressed state is just the darker fill.
+		// Flatten Aura's raised checked pill — the pressed state is just the fill.
 		--p-togglebutton-content-checked-background: transparent;
 		--p-togglebutton-content-checked-shadow: none;
 	}
@@ -345,8 +336,7 @@ function shouldProcessBeDisabled() {
 		> .window-controls {
 			-webkit-app-region: no-drag;
 
-			/* On the colored bar every control uses the on-primary contrast
-			   color — the theme color itself would blend into the background. */
+			/* On the colored bar, controls use the on-primary contrast color. */
 			--p-button-text-primary-color: var(--p-primary-contrast-color);
 			--p-button-text-secondary-color: var(--p-primary-contrast-color);
 			--p-button-text-danger-color: var(--p-primary-contrast-color);
@@ -382,9 +372,8 @@ function shouldProcessBeDisabled() {
 		}
 	}
 
-	/* The window close (✕) keeps the header's normal contrast color at rest;
-	   hovering turns it white on bright red, pressing darkens the red. Needs
-	   its own rules — the header's contrast-color overrides are unlayered. */
+	/* Close button: white on red on hover; needs its own rules because the
+	   header's contrast-color overrides are unlayered. */
 	.header > .window-controls {
 		:deep(.p-button.close-button.p-button-text:hover) {
 			color: var(--p-surface-0);
@@ -453,23 +442,18 @@ function shouldProcessBeDisabled() {
 
 	.component-border--primary {
 		border-radius: 10px;
-		/* Real border instead of a box-shadow ring — box-shadows are drawn
-		   outside the element and get clipped by the shell's overflow guards. */
+		/* Real border — box-shadow rings get clipped by the shell's overflow guards. */
 		border: 1px solid var(--p-primary-500);
 		box-sizing: border-box;
 	}
 
-	/* The Import Orders card is the one that grows with its file list; allowing
-	   it to shrink past its content minimum lets the internal flex cascade run
-	   (dropzone yields to its floor → the file list caps and scrolls) instead
-	   of the card overflowing the column when the list gets long. */
+	/* Shrinkable so the internal flex cascade runs (dropzone → list scroll)
+	   instead of the card overflowing when its list gets long. */
 	.import-orders-card {
 		min-height: 0;
 	}
 
-	/* When the column runs out of room, the Print Files card yields down to its
-	   floor FIRST — the space it gives up feeds the Import Orders list before
-	   that list has to start scrolling. */
+	/* Yields space FIRST so the Import Orders list can grow before it scrolls. */
 	.print-files-card {
 		flex-shrink: 999;
 	}

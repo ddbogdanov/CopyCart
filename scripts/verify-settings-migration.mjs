@@ -1,12 +1,9 @@
 /**
- * Sandboxed verification of the settings storage migration
- * (legacy `<userData>/settings.json` -> electron-store `<userData>/config.json`).
+ * Sandboxed verification of the settings migration (legacy `settings.json` ->
+ * electron-store `config.json`).
  *
- * Run under Electron:  npm run verify:settings-migration
- *
- * Uses a throwaway temp directory as `userData`, so real user settings are
- * never read or written. Exits non-zero when any check fails. Keep this script
- * passing before shipping a release that changes the settings backend.
+ * Run: npm run verify:settings-migration
+ * Uses a throwaway `userData` temp dir; exits non-zero on failure.
  */
 import { app } from 'electron'
 import fs from 'fs'
@@ -22,8 +19,7 @@ const { RendererEvents } = await import('../electron/services/RendererEvents.ts'
 const { SettingsService } = await import('../electron/services/SettingsService.ts')
 const { ImportService } = await import('../electron/services/ImportService.ts')
 
-// Mirrors the production wiring in electron/main.ts. No window is attached, so
-// RendererEvents.send is a no-op here.
+// Mirrors electron/main.ts wiring; no window is attached (events are no-ops).
 function createServices() {
 	const events = new RendererEvents()
 	const settingsService = new SettingsService(events)
@@ -31,8 +27,7 @@ function createServices() {
 	return { settingsService, importService }
 }
 
-// Mirrors the `did-finish-load` wiring in electron/main.ts: load the settings,
-// then restore the cached import file when one was saved.
+// Mirrors the did-finish-load restore in electron/main.ts.
 function boot(services) {
 	const settings = services.settingsService.load()
 	if (settings.imports.length > 0) services.importService.cacheFiles(settings.imports)
@@ -64,8 +59,7 @@ function writeLegacy(content) {
 	fs.writeFileSync(legacyPath, JSON.stringify(content, null, 2), 'utf-8')
 }
 
-// Mirrors a realistic legacy file written by app versions <= 1.4.x.
-// `printFolder: false` proves explicit `false` flags survive the migration.
+// Realistic <= 1.4.x file; `printFolder: false` proves explicit flags survive.
 const LEGACY_FIXTURE = {
 	shouldSave: { imports: false, printFiles: true, printFolder: false },
 	imports: '',
@@ -120,17 +114,15 @@ console.log('\n[2] Migration from legacy settings.json (the auto-update path)')
 	const reloaded = boot(relaunch)
 	check('migrated values still present', reloaded.themeColor === '#3b82f6' && reloaded.printFiles === 'C:\\PrintFiles')
 
-	// Simulate a leftover/stale legacy file (e.g. rename failed, or file restored
-	// by hand): once migrated, old data must never overwrite the new store.
+	// Stale legacy file (rename failed / restored by hand): must not overwrite the new store.
 	writeLegacy({ ...LEGACY_FIXTURE, themeColor: '#ef4444', printFiles: 'C:\\Stale' })
 	const guarded = createServices()
 	const guardedSettings = boot(guarded)
 	check('stale legacy file does not overwrite migrated settings', guardedSettings.themeColor === '#3b82f6' && guardedSettings.printFiles === 'C:\\PrintFiles')
 	fs.rmSync(legacyPath)
 
-	// Store file lost after migration (manual deletion, disk cleanup): the app
-	// regenerates a fresh store containing defaults — and the migration must NOT
-	// run again, even though the values are gone (the `.bak` marks it as done).
+	// Store lost after migration: defaults are regenerated; migration must NOT
+	// re-run (the `.bak` marks it as done).
 	fs.rmSync(storePath)
 	const regenerated = createServices()
 	check('store file regenerated after loss', fs.existsSync(storePath))
@@ -213,10 +205,8 @@ console.log('\n[6] Settings write through to disk immediately')
 
 console.log('\n[7] Store unavailable (unwritable/misconfigured userData — app must still start)')
 {
-	// Point userData beneath a path that cannot be a directory so electron-store
-	// cannot initialize. The guard must absorb it: defaults for the session and
-	// save failures reported, never a startup crash (crucial during an update,
-	// when the installer briefly launches the app).
+	// userData beneath a file: the guard must absorb it — session defaults, save
+	// failures reported, never a startup crash.
 	const blockedParent = path.join(testRoot, 'blocked-parent')
 	fs.writeFileSync(blockedParent, 'not a directory', 'utf-8')
 	app.setPath('userData', path.join(blockedParent, 'userData'))
@@ -286,8 +276,7 @@ console.log('\n[9] Stored settings type sanitization (valid JSON, wrong types)')
 {
 	resetSandbox()
 
-	// `clearInvalidConfig` only catches invalid JSON — wrong-typed values in a
-	// hand-edited (or older) store must be coerced back to the contract types.
+	// Wrong-typed values must be coerced back to the contract (clearInvalidConfig only catches bad JSON).
 	fs.writeFileSync(storePath, JSON.stringify({
 		shouldSave: { imports: 'yes', printFiles: 0, printFolder: null },
 		printFiles: 123,

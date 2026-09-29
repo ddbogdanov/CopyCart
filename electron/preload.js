@@ -1,9 +1,6 @@
 // @ts-check
-//
-// Preload bridge — exposes the typed `window.electronAPI` surface to the
-// renderer. Channel names and payloads are checked against the shared IPC
-// contract (shared/ipc.ts) at compile time; the exposed API shape is enforced
-// by the `ElectronApi` type below.
+// Preload bridge for the main window — the API below is type-checked against
+// the shared IPC contract (shared/ipc.ts).
 const { contextBridge, ipcRenderer, webUtils } = require('electron')
 
 /** @typedef {import('../shared/ipc').ElectronApi} ElectronApi */
@@ -12,8 +9,7 @@ const { contextBridge, ipcRenderer, webUtils } = require('electron')
 /** @typedef {import('electron').IpcRendererEvent} IpcRendererEvent */
 
 /**
- * Typed wrapper around `ipcRenderer.invoke` — the channel literal is validated
- * against the shared IPC contract.
+ * Typed `ipcRenderer.invoke` — the channel must exist in the IPC contract.
  * @template {keyof IpcRequests} K
  * @param {K} channel
  * @param {...any} args
@@ -24,8 +20,8 @@ function invoke(channel, ...args) {
 }
 
 /**
- * Subscribes to a main-process event, replacing any previous listener for the
- * channel (component remounts during hot reload must not stack listeners).
+ * Subscribe to a main-process event, replacing any previous listener for the
+ * channel (remounts must not stack listeners).
  * @template {keyof IpcEvents} K
  * @param {K} channel
  * @param {(event: IpcRendererEvent, payload: IpcEvents[K]) => void} callback
@@ -38,8 +34,7 @@ function subscribe(channel, callback) {
 /** @type {ElectronApi} */
 const electronAPI = {
 	openFileDialog: (request) => invoke('open-file-dialog', request),
-	// `File` is a DOM type — the cast keeps @ts-check happy in the Node-typed
-	// electron project; webUtils expects the real File object at runtime.
+	// `File` is a DOM type — the cast keeps @ts-check happy; webUtils wants the real object.
 	getPathForFile: (file) => webUtils.getPathForFile(/** @type {any} */ (file)),
 	deleteCache: () => invoke('delete-cache'),
 	cacheImportFiles: (filePaths) => invoke('cache-import-files', filePaths),

@@ -1,13 +1,9 @@
 /**
- * Sandboxed verification of the multi-file order import flow
- * (row dedupe, path dedupe, content dedupe, replace semantics, persistence,
- * cache clearing) and of the copy pipeline accounting (one copy per ordered
- * quantity, unmatched/invalid lines reported instead of skipped silently).
+ * Sandboxed verification of the multi-file import flow (path/content/row dedupe,
+ * replace semantics, persistence, cache clearing) and copy-pipeline accounting.
  *
- * Run under Electron:  npm run verify:import
- *
- * Uses a throwaway temp directory as `userData`, so real user settings are
- * never read or written. Exits non-zero when any check fails.
+ * Run: npm run verify:import
+ * Uses a throwaway `userData` temp dir; exits non-zero on failure.
  */
 import { app } from 'electron'
 import fs from 'fs'
@@ -63,8 +59,7 @@ fs.mkdirSync(fixtureRoot, { recursive: true })
 const CSV_HEADER = 'Name,Lineitem sku,Lineitem quantity,Billing Name,Paid at,Payment Method\n'
 function writeCsv(name, rows) {
 	const filePath = path.join(fixtureRoot, name)
-	// Every configured column is required now — pad the classic 4-cell rows so
-	// each of the six headers has a matching key (empty values, as before).
+	// Pad the classic 4-cell rows so all six headers have a key (empties).
 	fs.writeFileSync(filePath, CSV_HEADER + rows.map((row) => `${row},,`).join('\n') + '\n', 'utf-8')
 	return filePath
 }
@@ -230,9 +225,7 @@ console.log('\n[9] Copy accounting: unmatched + invalid-quantity lines are repor
 
 console.log('\n[10] Cross-file resolution: same order+SKU once; extras kept; conflicts flagged')
 {
-	// The same 3 line items appear in both files (the second file additionally
-	// contains one new line) -> the overlap is copied once, the new line is
-	// added. (Whole files differ, like two real exports with overlapping rows.)
+	// Overlapping rows from two exports: the overlap copies once, the new line is added.
 	const csvJ1 = writeCsv('orders-j1.csv', ['#7001,SKU-A,1,Jill', '#7001,SKU-A,1,Jill', '#7001,SKU-A,1,Jill'])
 	const csvJ2 = writeCsv('orders-j2.csv', ['#7001,SKU-A,1,Jill', '#7001,SKU-A,1,Jill', '#7001,SKU-A,1,Jill', '#7099,SKU-B,1,Nia'])
 	service.sent.length = 0
@@ -391,8 +384,7 @@ console.log('\n[14] Configurable CSV column names (defaults, tolerance, missing-
 	check('BOM file: values are read correctly',
 		service.importService.imports.length === 1 && service.importService.imports[0].name === '9104' && service.importService.imports[0].billingName === 'Dana')
 
-	// -- Missing columns: ANY configured column without a match skips the file
-	//    (reason + guidance); other files in the same load are unaffected.
+	// -- Missing columns: any unmatched configured column skips the file; other files still load.
 	const goodCsv = writeHeaderCsv('orders-good.csv', 'Name,Lineitem sku,Lineitem quantity,Billing Name,Paid at,Payment Method', ['#9105,SKU-A,1,Ed,,'])
 	const noNameCsv = writeHeaderCsv('orders-noname.csv', 'Lineitem sku,Lineitem quantity,Billing Name,Paid at,Payment Method', ['SKU-B,1,Fran,,'])
 	const noSkuCsv = writeHeaderCsv('orders-nosku.csv', 'Name,Lineitem quantity,Billing Name,Paid at,Payment Method', ['#9106,1,Gil,,'])
@@ -457,9 +449,7 @@ console.log('\n[14] Configurable CSV column names (defaults, tolerance, missing-
 	const emptyBillingNames = fs.readdirSync(columnsOutputDir).sort()
 	check('blank billing value: copy names keep the empty segment', JSON.stringify(emptyBillingNames) === JSON.stringify(['9108--sku-r7---0-0.png', '9108--sku-r7---1-0.png']), JSON.stringify(emptyBillingNames))
 
-	// Copy pressed while the selection exists but nothing is loaded (e.g. a
-	// refused startup restore): the toast must describe the real problem
-	// instead of telling the user to import a file they can already see.
+	// Copy with a selection but nothing loaded (refused restore): the toast must explain the real problem.
 	service.importService.deleteCache()
 	service.settingsService.setImports([emptyBillingCsv])
 	service.sent.length = 0
@@ -470,9 +460,7 @@ console.log('\n[14] Configurable CSV column names (defaults, tolerance, missing-
 	await new FileCopyService(service.settingsService, service.importService, service.events).processFiles()
 	check('copy with nothing selected keeps the original hint', toasts(service.sent).some((toast) => toast.includes('import at least one .CSV export first')))
 
-	// -- Stale-mapping gate: a mapping changed after the orders were loaded (its
-	//    re-read was refused) → Copy must refuse instead of copying the old
-	//    snapshot; restoring + reloading the mapping clears the block.
+	// -- Stale-mapping gate: Copy refuses when the mapping changed after load; reloading clears it.
 	const gatePrintDir = path.join(testRoot, 'print-files-gate')
 	const gateOutputDir = path.join(testRoot, 'output-gate')
 	fs.mkdirSync(gatePrintDir, { recursive: true })
@@ -527,8 +515,7 @@ console.log('\n[14] Configurable CSV column names (defaults, tolerance, missing-
 
 console.log('\n[15] Payment method + paid date (picked up from main)')
 {
-	// Fixture with the two columns main added: the second row (same order) has
-	// them empty and must inherit from the first row, like billing names.
+	// Second row (same order) inherits payment/date/billing from the first row.
 	const newColsCsv = path.join(fixtureRoot, 'orders-newcols.csv')
 	fs.writeFileSync(newColsCsv, 'Name,Lineitem sku,Lineitem quantity,Billing Name,Payment Method,Paid at\n' +
 		'#9301,SKU-NC,1,Nova,Credit Card,2026-07-20 10:00:00 +0000\n' +
@@ -542,8 +529,7 @@ console.log('\n[15] Payment method + paid date (picked up from main)')
 	check('missing payment/date/billing values inherit from the last row of the order',
 		service.importService.imports[1].paymentMethod === 'Credit Card' && service.importService.imports[1].paidDate === '2026-07-20 10:00:00 +0000' && service.importService.imports[1].billingName === 'Nova')
 
-	// Copy names carry the segments (payment method lowercased, first space
-	// replaced; the colon in the date is sanitized to '_' like other reserved chars).
+	// Copy names carry both segments (method lowercased, date sanitized).
 	const newColsPrintDir = path.join(testRoot, 'print-files-newcols')
 	const newColsOutputDir = path.join(testRoot, 'output-newcols')
 	fs.mkdirSync(newColsPrintDir, { recursive: true })

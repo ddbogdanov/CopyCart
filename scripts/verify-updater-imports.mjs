@@ -1,6 +1,5 @@
-// Verifies the ESM/CJS interop and default configuration of the updater
-// dependencies under Electron's main process (electron-updater is CJS; this
-// app runs ESM with Node type stripping). Run: npm run verify:updater
+// Verifies electron-updater interop and defaults under Electron's main process.
+// Run: npm run verify:updater
 import { app } from 'electron'
 
 const failures = []
@@ -9,10 +8,8 @@ const check = (name, ok) => {
 	if (!ok) failures.push(name)
 }
 
-// electron-updater is CommonJS with non-analysable exports: UpdateService must
-// use `import pkg from 'electron-updater'` + destructuring (named ESM imports
-// such as `import { autoUpdater }` fail at runtime with a SyntaxError).
-// `m.default` below is exactly what a default import resolves to.
+// UpdateService must keep the default-import + destructure style: named ESM
+// imports (`import { autoUpdater }`) fail at runtime (non-analysable CJS exports).
 const m = await import('electron-updater')
 const pkg = m.default ?? m
 
@@ -37,9 +34,8 @@ catch (error) {
 const logModule = await import('electron-log')
 check('electron-log bare import works', typeof (logModule.default ?? logModule).info === 'function')
 
-// UpdateService MUST keep an 'error' listener on the updater: electron-updater's
-// check/download failure paths only emit 'error' (they don't log it), and an
-// unobserved 'error' event throws — silently swallowing field failures.
+// UpdateService must keep an 'error' listener: failure paths only emit 'error'
+// (never log), and an unobserved 'error' event throws.
 const { UpdateService } = await import('../electron/services/UpdateService.ts')
 new UpdateService()
 check('UpdateService attaches an updater error listener', pkg.autoUpdater.listenerCount('error') > 0)

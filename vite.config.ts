@@ -3,13 +3,11 @@ import vue from '@vitejs/plugin-vue'
 import { fileURLToPath } from 'node:url'
 import pkg from './package.json'
 
-// https://vite.dev/config/
 export default defineConfig({
   plugins: [vue()],
   base: './',
   server: {
-	// electron/main.ts loads http://localhost:5173 in dev — fail loudly on a
-	// port clash instead of silently moving to another port the app won't load.
+	// The dev app loads 5173 — fail loudly on a port clash instead of drifting.
 	port: 5173,
 	strictPort: true
   },

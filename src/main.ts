@@ -100,7 +100,5 @@ app.mount('#app')
 //          npm run publish:nsis  — same, plus a draft GitHub release (needs GH_TOKEN)
 
 // TODO:
-//
 // 1. Filter Print Folder (destPath) based on conditions given by import file
-// 2. <--Deep-search/multiple-directory-selection-for-print-files-->
-// 		a. Additionally, directory hierarchy preservation on copy
+// 2. Directory hierarchy preservation on copy
