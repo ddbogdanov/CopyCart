@@ -4,7 +4,7 @@
   "description": "Copy files using order import",
   "author": "Dennis Bogdanov",
   "private": true,
-  "version": "1.5.0",
+  "version": "1.5.1",
   "type": "module",
   "scripts": {
     "dev": "concurrently -k \"vite\" \"wait-on http://localhost:5173 && electron .\"",

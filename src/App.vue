@@ -78,7 +78,23 @@
 			</div>
 		</div>
 
-		<Toast/>
+		<Toast>
+			<template #message="slotProps">
+				<i :class="severityIcon(slotProps.message.severity)" class="p-toast-message-icon" />
+				<div class="p-toast-message-text">
+					<span class="p-toast-summary">{{ slotProps.message.summary }}</span>
+					<div class="p-toast-detail">
+						{{ slotProps.message.detail }}
+						<a v-if="slotProps.message.reportPath"
+							href="#"
+							class="report-link"
+							@click.prevent="openReport(slotProps.message.reportPath)">
+							Saved to: {{ slotProps.message.reportPath }}
+						</a>
+					</div>
+				</div>
+			</template>
+		</Toast>
 		<ConfirmPopup/>
 
 		<Drawer header="Settings" class="settings-drawer" position="right" v-model:visible="settingsVisible" @hide="onCloseSettings" style="width: 60vw;">
@@ -101,6 +117,7 @@ import Toast from 'primevue/toast'
 import { useToast } from 'primevue/usetoast';
 import SettingsForm from './components/SettingsForm.vue'
 import CsvColumnsDialog from './components/CsvColumnsDialog.vue'
+import type { ToastMessageOptions } from 'primevue/toast'
 import type { CsvColumns } from '../shared/ipc'
 import { ipc } from './ipc'
 
@@ -123,6 +140,8 @@ const settings = ref({
 	printFolder: '',
 	recursivePrintFiles: false,
 	themeColor: '#10b981',
+	reportFolder: '',
+	reportToPrintFolder: true,
 	csvColumns: {
 		orderName: 'Name',
 		sku: 'Lineitem sku',
@@ -143,6 +162,8 @@ let backupSettings = {
 	printFolder: '',
 	recursivePrintFiles: false,
 	themeColor: '#10b981',
+	reportFolder: '',
+	reportToPrintFolder: true,
 	csvColumns: {
 		orderName: 'Name',
 		sku: 'Lineitem sku',
@@ -159,13 +180,21 @@ onMounted(() => {
 		progress.value = Math.round(p)
 		status.value = s
 	})
-	ipc.onToast((message) => {
+	ipc.onToast((payload) => {
+		const message = typeof payload === 'string' ? payload : payload.message
+		const reportPath = typeof payload === 'string' ? undefined : payload.reportPath
 		console.log(message)
-		toast.add({
+
+		const toastMessage: ToastMessageOptions & { reportPath?: string } = {
 			severity: 'error',
 			summary: 'Error',
 			detail: message
-		})
+		}
+		if (reportPath) {
+			toastMessage.reportPath = reportPath
+			toastMessage.life = 15000
+		}
+		toast.add(toastMessage)
 	})
 	ipc.onSettingsUpdate((s) => {
 		settings.value = s
@@ -271,6 +300,20 @@ function contrastColorFor(hex: string): string {
 	const luminance = 0.2126 * channel(0) + 0.7152 * channel(2) + 0.0722 * channel(4)
 	return luminance > 0.2 ? '#1c1917' : '#ffffff'
 }
+
+/** Icon class for a toast severity (custom message slot). */
+function severityIcon(severity: string | undefined): string {
+	if (severity === 'success') return 'pi pi-check-circle'
+	if (severity === 'warn') return 'pi pi-exclamation-triangle'
+	if (severity === 'info' || severity === 'secondary' || severity === 'contrast') return 'pi pi-info-circle'
+	return 'pi pi-times-circle'
+}
+
+/** Reveals the error report in Explorer (toast link). */
+function openReport(filePath: string) {
+	ipc.showReport(filePath)
+}
+
 function minimize() {
 	ipc.minimize()
 }
@@ -306,6 +349,19 @@ function shouldProcessBeDisabled() {
 		// Flatten Aura's raised checked pill — the pressed state is just the fill.
 		--p-togglebutton-content-checked-background: transparent;
 		--p-togglebutton-content-checked-shadow: none;
+	}
+
+	/* “Saved to: …” link in the toast message slot. */
+	.report-link {
+		display: block;
+		margin-top: 4px;
+
+		color: inherit;
+		font-weight: 600;
+		text-decoration: underline;
+		cursor: pointer;
+
+		word-break: break-all;
 	}
 
 	.main {

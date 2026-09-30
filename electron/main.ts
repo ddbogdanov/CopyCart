@@ -1,5 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron'
-import { execFileSync } from 'node:child_process'
+import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { RendererEvents } from './services/RendererEvents.ts'
@@ -16,23 +15,11 @@ const __dirname = dirname(__filename)
 const events = new RendererEvents()
 const settingsService = new SettingsService(events)
 const importService = new ImportService(settingsService, events)
-const fileCopyService = new FileCopyService(settingsService, importService, events)
+const fileCopyService = new FileCopyService(settingsService, importService, events, { autoOpenReport: true })
 const updateService = new UpdateService()
 let mainWindow: BrowserWindow
 
 app.setName('Copy Cart')
-
-// Dev-only heads-up: `net session` only succeeds when elevated, and an
-// elevated window never receives Explorer drag & drop (Windows UIPI).
-if (!app.isPackaged && process.platform === 'win32') {
-	try {
-		execFileSync('net', ['session'], { stdio: 'ignore', windowsHide: true })
-		console.warn('\u26a0 DEV WARNING: running ELEVATED (Administrator). Windows will block file drag & drop into this window — relaunch from a non-admin terminal (plain PowerShell / VS Code without "Run as administrator").')
-	}
-	catch {
-		// Expected path when non-elevated.
-	}
-}
 
 app.whenReady().then(() => {
 	createWindow()
@@ -93,6 +80,7 @@ const handlers: IpcHandlers = {
 		return saved
 	},
 	'open-dev-tools': () => { mainWindow.webContents.openDevTools() },
+	'show-report': (filePath) => { shell.showItemInFolder(filePath) },
 	'update-window:cancel': () => { updateService.cancelDownload() },
 	'update-window:close': () => { updateService.closeUpdateWindow() },
 }

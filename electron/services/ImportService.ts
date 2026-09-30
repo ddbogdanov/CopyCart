@@ -2,6 +2,7 @@ import fs from "fs"
 import csv from "csv-parser"
 import path from "path"
 import log from 'electron-log'
+import { plural } from '../../shared/plural.ts'
 import type { RendererEvents } from './RendererEvents.ts'
 import type { SettingsService } from './SettingsService.ts'
 import type { CsvColumns } from '../../shared/ipc'
@@ -126,10 +127,10 @@ export class ImportService {
 					const missingRequired = REQUIRED_COLUMN_FIELDS.filter((field) => !resolvedColumns[field])
 					if (missingRequired.length > 0) {
 						const listed = missingRequired.map((field) => `"${columns[field]}"`).join(', ')
-						const plural = missingRequired.length > 1 ? 's' : ''
-						skippedReport.push(`${path.basename(csvPath)} — missing column${plural} ${listed}`)
+						const pluralSuffix = missingRequired.length > 1 ? 's' : ''
+						skippedReport.push(`${path.basename(csvPath)} — missing column${pluralSuffix} ${listed}`)
 						missingColumnSkips++
-						log.warn(`[ImportService] ${path.basename(csvPath)} — missing column${plural} ${listed}. Actual headers: ${Object.keys(rows[0]).join(', ')}`)
+						log.warn(`[ImportService] ${path.basename(csvPath)} — missing column${pluralSuffix} ${listed}. Actual headers: ${Object.keys(rows[0]).join(', ')}`)
 						continue
 					}
 				}
@@ -180,15 +181,15 @@ export class ImportService {
 			this.events.send('import:status', { isParsing: false, fileCount: keptPaths.length, orderCount: merged.length })
 
 			const notices: string[] = []
-			if (duplicateRows > 0) notices.push(`Ignored ${duplicateRows} duplicate order line(s) found across the selected files.`)
+			if (duplicateRows > 0) notices.push(`Ignored ${plural(duplicateRows, 'duplicate order line')} found across the selected files.`)
 			if (conflictingRows > 0) notices.push(`${conflictingRows} of them had a different quantity in a later file — kept the first file's value.`)
 			if (skippedReport.length > 0) {
 				const guidance = missingColumnSkips > 0 ? MISSING_COLUMN_GUIDANCE : ''
-				notices.push(`Skipped file(s): ${formatSkipped(skippedReport)}${guidance}`)
+				notices.push(`Skipped ${plural(skippedReport.length, 'file')}: ${formatSkipped(skippedReport)}${guidance}`)
 			}
 			if (notices.length > 0) this.events.send('toast', notices.join(' '))
 
-			console.log(`${merged.length} order imports cached from ${keptPaths.length} file(s)`);
+			console.log(`${plural(merged.length, 'order import')} cached from ${plural(keptPaths.length, 'file')}`);
 			this.events.send('update:loading:state', {'isLoading': false, 'progress': 0, 'status': 'Idle'})
 			this.events.send('settings:update', this.settingsService.settings)
 

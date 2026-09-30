@@ -75,7 +75,9 @@ console.log('\n[1] Fresh install (no legacy file)')
 	const loaded = boot(fresh)
 
 	check('defaults are used', loaded.printFiles === '' && loaded.themeColor === '#10b981' && loaded.shouldSave.printFiles === true)
+	check('error-report defaults are present', loaded.reportFolder === '' && loaded.reportToPrintFolder === true)
 	check('saving succeeds', fresh.settingsService.save({ ...loaded }) === true)
+	check('error-report settings type-sanitize on save', fresh.settingsService.save({ reportFolder: 123, reportToPrintFolder: 'yes' }) === true && fresh.settingsService.settings.reportFolder === '' && fresh.settingsService.settings.reportToPrintFolder === true)
 	check('store file written (config.json)', fs.existsSync(storePath))
 	check('legacy file is NOT (re)created', !fs.existsSync(legacyPath))
 	check('no legacy backup created', !fs.existsSync(backupPath))
@@ -189,6 +191,9 @@ console.log('\n[6] Settings write through to disk immediately')
 
 	immediate.settingsService.setPrintFolder('C:\\OutNow')
 	check('picking print folder persists without a quit save', readJson(storePath).printFolder === 'C:\\OutNow')
+
+	immediate.settingsService.save({ reportFolder: 'C:\\Reports', reportToPrintFolder: false })
+	check('saving the report settings persists without a quit save', readJson(storePath).reportFolder === 'C:\\Reports' && readJson(storePath).reportToPrintFolder === false)
 
 	immediate.settingsService.setImports(['C:\\a.csv', 'C:\\b.csv'])
 	check('import selection persists without a quit save', JSON.stringify(readJson(storePath).imports) === JSON.stringify(['C:\\a.csv', 'C:\\b.csv']))
