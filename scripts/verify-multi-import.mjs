@@ -33,6 +33,13 @@ function createServices() {
 
 	const settingsService = new SettingsService(events)
 	const importService = new ImportService(settingsService, events)
+
+	// Keep reports out of the scanned output folders; load() first so these
+	// saves never clobber persisted state (relaunch-simulation checks).
+	settingsService.load()
+	settingsService.setReportFolder(reportDir)
+	settingsService.setReportToPrintFolder(false)
+
 	return { settingsService, importService, events, sent }
 }
 
@@ -50,7 +57,7 @@ function check(name, condition, detail = '') {
 }
 const lastStatus = (sent) => [...sent].reverse().find((entry) => entry.channel === 'import:status')?.payload
 const lastLoading = (sent) => [...sent].reverse().find((entry) => entry.channel === 'update:loading:state')?.payload
-const toasts = (sent) => sent.filter((entry) => entry.channel === 'toast').map((entry) => String(entry.payload))
+const toasts = (sent) => sent.filter((entry) => entry.channel === 'toast').map((entry) => (typeof entry.payload === 'string' ? entry.payload : entry.payload?.message ?? String(entry.payload)))
 
 // --- Fixtures ---------------------------------------------------------------
 const fixtureRoot = path.join(testRoot, 'fixtures')
@@ -68,6 +75,21 @@ const csvA = writeCsv('orders-a.csv', ['#1001,SKU-A,1,Alice', '#1002,SKU-B,2,Bob
 const csvACopy = writeCsv('orders-a-copy.csv', ['#1001,SKU-A,1,Alice', '#1002,SKU-B,2,Bob'])
 const csvB = writeCsv('orders-b.csv', ['#1002,SKU-B,2,Bob', '#2001,SKU-C,1,Carol'])
 const txtFile = path.join(fixtureRoot, 'notes.txt')
+
+// Dedicated report folder so output-folder assertions count only copied files.
+const reportDir = path.join(testRoot, 'reports')
+fs.mkdirSync(reportDir, { recursive: true })
+function clearReports() {
+	fs.rmSync(reportDir, { recursive: true, force: true })
+	fs.mkdirSync(reportDir, { recursive: true })
+}
+function reportList() {
+	return fs.existsSync(reportDir) ? fs.readdirSync(reportDir) : []
+}
+function readSingleReport() {
+	const files = reportList()
+	return files.length === 1 ? fs.readFileSync(path.join(reportDir, files[0]), 'utf-8') : null
+}
 fs.writeFileSync(txtFile, 'not a csv', 'utf-8')
 
 const service = createServices()
@@ -177,6 +199,7 @@ console.log('\n[8] Copy pipeline: one copy per ordered quantity, named by order'
 
 	service.settingsService.setPrintFiles(printFilesDir)
 	service.settingsService.setPrintFolder(outputDir)
+	clearReports()
 	await service.importService.cacheFiles([csvA])
 
 	const copyService = new FileCopyService(service.settingsService, service.importService, service.events)
@@ -189,7 +212,8 @@ console.log('\n[8] Copy pipeline: one copy per ordered quantity, named by order'
 	check('case-insensitive file lookup (SKU-A.png -> sku-a)', output.includes('1001-Alice-sku-a---0-0.png'))
 	check('copies named with order + customer + sku + date + payment + index', output.includes('1002-Bob-sku-b---0-1.png') && output.includes('1002-Bob-sku-b---1-1.png'))
 	check('output set is exactly the merged naming formula (golden list)', JSON.stringify(output) === JSON.stringify(['1001-Alice-sku-a---0-0.png', '1002-Bob-sku-b---0-1.png', '1002-Bob-sku-b---1-1.png']))
-	check('final status reports the copied count', String(lastLoading(service.sent)?.status ?? '').startsWith('Done — 3 file(s) copied'))
+	check('final status reports the copied count', String(lastLoading(service.sent)?.status ?? '').startsWith('Done — 3 files copied'))
+	check('clean runs write no error report', reportList().length === 0)
 }
 
 console.log('\n[9] Copy accounting: unmatched + invalid-quantity lines are reported')
@@ -197,6 +221,7 @@ console.log('\n[9] Copy accounting: unmatched + invalid-quantity lines are repor
 	const outputDir2 = path.join(testRoot, 'output-2')
 	fs.mkdirSync(outputDir2, { recursive: true })
 	service.settingsService.setPrintFolder(outputDir2)
+	clearReports()
 
 	// sku-b matches, sku-c has no print file
 	await service.importService.cacheFiles([csvB])
@@ -206,21 +231,74 @@ console.log('\n[9] Copy accounting: unmatched + invalid-quantity lines are repor
 
 	check('processing reports success', ok === true)
 	check('only matched lines produce output', fs.readdirSync(outputDir2).length === 2)
-	check('unmatched line reported in a toast', toasts(service.sent).some((toast) => toast.includes('No print file found for 1 order line(s)') && toast.includes('sku-c')))
-	check('final status mentions the skipped line', String(lastLoading(service.sent)?.status ?? '').includes('1 order line(s) had no output'))
+	check('unmatched line reported in a concise toast', toasts(service.sent).some((toast) => toast.includes('1 order line had no output (1 with no print file)')))
+	check('report toast carries the report path', service.sent.some((entry) => entry.channel === 'toast' && typeof entry.payload === 'object' && String(entry.payload.reportPath).startsWith(reportDir) && String(entry.payload.reportPath).endsWith('.csv')))
+	check('final status mentions the skipped line + the report', String(lastLoading(service.sent)?.status ?? '').includes('1 order line had no output') && String(lastLoading(service.sent)?.status ?? '').includes('See the error report'))
+	const unmatchedReport = readSingleReport()
+	check('error report written for the unmatched line', !!unmatchedReport && unmatchedReport.includes('No print file found'))
+	check('report groups rows under a per-reason heading', !!unmatchedReport && unmatchedReport.includes('No print file found — 1 row'))
+	check('report names the missing SKU + fix hint (quotes escaped)', !!unmatchedReport && unmatchedReport.includes('sku-c') && unmatchedReport.includes('Add a print file named ""sku-c""'))
+	check('report is UTF-8 with BOM + CRLF rows', !!unmatchedReport && unmatchedReport.charCodeAt(0) === 0xFEFF && unmatchedReport.includes('\r\n'))
+	check('detail drops the "(any extension)" hint', !!unmatchedReport && !unmatchedReport.includes('any extension'))
+	check('section subtotal sums the quantity column', !!unmatchedReport && unmatchedReport.includes('Total,,1,'))
+	check('report has no report-wide footer row', !!unmatchedReport && !unmatchedReport.includes('Total: '))
 
 	// Invalid quantity guard: line is skipped and reported, never silently dropped.
 	const csvE = writeCsv('orders-e.csv', ['#4001,SKU-A,,Eve'])
 	const outputDir3 = path.join(testRoot, 'output-3')
 	fs.mkdirSync(outputDir3, { recursive: true })
 	service.settingsService.setPrintFolder(outputDir3)
+	clearReports()
 	await service.importService.cacheFiles([csvE])
 	service.sent.length = 0
 	const copyService2 = new FileCopyService(service.settingsService, service.importService, service.events)
 	await copyService2.processFiles()
 
 	check('invalid quantity produces no output', fs.readdirSync(outputDir3).length === 0)
-	check('invalid quantity reported', toasts(service.sent).some((toast) => toast.includes('missing/invalid quantity')))
+	check('invalid quantity reported', toasts(service.sent).some((toast) => toast.includes('1 with an invalid quantity')))
+	const invalidReport = readSingleReport()
+	check('invalid quantity listed in the report with the bad value', !!invalidReport && invalidReport.includes('Invalid quantity') && invalidReport.includes('is missing or not a positive number'))
+	check('invalid quantity table carries its own heading', !!invalidReport && invalidReport.includes('Invalid quantity — 1 row'))
+}
+
+console.log('\n[9b] A failed copy is listed in the report with its reason')
+{
+	clearReports()
+	const blockedOutput = path.join(testRoot, 'output-blocked')
+	fs.mkdirSync(blockedOutput, { recursive: true })
+	// A directory occupying the exact target name forces that copy to fail while others succeed.
+	fs.mkdirSync(path.join(blockedOutput, '1001-Alice-sku-a---0-0.png'))
+	service.settingsService.setPrintFolder(blockedOutput)
+	await service.importService.cacheFiles([csvA])
+	service.sent.length = 0
+	const ok = await new FileCopyService(service.settingsService, service.importService, service.events).processFiles()
+
+	check('run completes despite the failed copy', ok === true)
+	check('concise toast counts the failed copy', toasts(service.sent).some((toast) => toast.includes('1 file failed to copy')))
+	check('final status counts the copy failure', String(lastLoading(service.sent)?.status ?? '').includes('1 copy failure'))
+	const failureReport = readSingleReport()
+	check('failed copy listed in the report with its destination', !!failureReport && failureReport.includes('Copy failed') && failureReport.includes('1001-Alice-sku-a---0-0.png'))
+}
+
+console.log('\n[9c] Report stacks one table per reason (multiple reasons in one run)')
+{
+	clearReports()
+	const groupedOutput = path.join(testRoot, 'output-grouped')
+	fs.mkdirSync(groupedOutput, { recursive: true })
+	// One blocked copy (directory occupying the target name) + one missing print file.
+	fs.mkdirSync(path.join(groupedOutput, '1001-Alice-sku-a---0-0.png'))
+	service.settingsService.setPrintFolder(groupedOutput)
+	const csvG = writeCsv('orders-g.csv', ['#1001,SKU-A,1,Alice', '#1002,SKU-Q,2,Ben'])
+	await service.importService.cacheFiles([csvG])
+	service.sent.length = 0
+	const ok = await new FileCopyService(service.settingsService, service.importService, service.events).processFiles()
+
+	check('grouped run reports success', ok === true)
+	const groupedReport = readSingleReport()
+	check('each reason gets its own heading + count', !!groupedReport && groupedReport.includes('No print file found — 1 row') && groupedReport.includes('Copy failed — 1 row'))
+	check('tables keep a stable order with a blank row between them', !!groupedReport && groupedReport.indexOf('No print file found — 1 row') < groupedReport.indexOf('Copy failed — 1 row') && groupedReport.includes('\r\n\r\nCopy failed — 1 row'))
+	check('each table repeats the column header', !!groupedReport && groupedReport.split('Order,SKU,Quantity,Problem,Detail,Billing name,Paid at,Payment method,Row').length - 1 === 2)
+	check('each section subtotals its quantity column', !!groupedReport && groupedReport.includes('Total,,2,') && groupedReport.includes('Total,,1,'))
 }
 
 console.log('\n[10] Cross-file resolution: same order+SKU once; extras kept; conflicts flagged')
@@ -231,7 +309,7 @@ console.log('\n[10] Cross-file resolution: same order+SKU once; extras kept; con
 	service.sent.length = 0
 	await service.importService.cacheFiles([csvJ1, csvJ2])
 	check('overlapping lines kept once (not six)', service.importService.imports.length === 4)
-	check('three duplicates reported', toasts(service.sent).some((toast) => toast.includes('Ignored 3 duplicate order line(s)')))
+	check('three duplicates reported', toasts(service.sent).some((toast) => toast.includes('Ignored 3 duplicate order lines')))
 
 	const outputDir4 = path.join(testRoot, 'output-4')
 	fs.mkdirSync(outputDir4, { recursive: true })
@@ -246,7 +324,7 @@ console.log('\n[10] Cross-file resolution: same order+SKU once; extras kept; con
 	service.sent.length = 0
 	await service.importService.cacheFiles([csvK1, csvK2])
 	check('extra occurrence in a later file is kept', service.importService.imports.length === 2)
-	check('only the shared occurrence counts as duplicate', toasts(service.sent).some((toast) => toast.includes('Ignored 1 duplicate order line(s)')))
+	check('only the shared occurrence counts as duplicate', toasts(service.sent).some((toast) => toast.includes('Ignored 1 duplicate order line ')))
 
 	// A quantity mismatch between files: first file wins, mismatch is surfaced.
 	const csvL1 = writeCsv('orders-l1.csv', ['#9001,SKU-A,2,Lena'])
@@ -315,10 +393,12 @@ console.log('\n[13] Recursive print-file search is opt-in and prefers the highes
 	service.settingsService.setPrintFolder(outputOff)
 	await service.importService.cacheFiles([csvR])
 	service.sent.length = 0
+	clearReports()
 	await new FileCopyService(service.settingsService, service.importService, service.events).processFiles()
 	const outputOffFiles = fs.readdirSync(outputOff).sort()
 	check('recursion off: nested files are not used', outputOffFiles.length === 2 && !outputOffFiles.some((name) => name.includes('sku-s')), JSON.stringify(outputOffFiles))
-	check('recursion off: unmatched nested SKU is reported', toasts(service.sent).some((toast) => toast.includes('sku-s')))
+	const recursionReport = readSingleReport()
+	check('recursion off: unmatched nested SKU is listed in the report', !!recursionReport && recursionReport.includes('sku-s'))
 
 	// Enabled: nested files are found; the top-level sku-x wins the name collision.
 	service.settingsService.save({ recursivePrintFiles: true })
@@ -391,7 +471,7 @@ console.log('\n[14] Configurable CSV column names (defaults, tolerance, missing-
 	const noQtyCsv = writeHeaderCsv('orders-noqty.csv', 'Name,Lineitem sku,Billing Name,Paid at,Payment Method', ['#9107,SKU-A,Hana,,'])
 	service.sent.length = 0
 	const mixedOk = await service.importService.cacheFiles([goodCsv, noNameCsv, noSkuCsv, noQtyCsv])
-	const mixedToast = toasts(service.sent).find((toast) => toast.includes('Skipped file(s)'))
+	const mixedToast = toasts(service.sent).find((toast) => toast.includes('Skipped 3 files'))
 	check('missing-column load still succeeds via the good file', mixedOk === true)
 	check('only the good file\'s rows import', service.importService.imports.length === 1 && service.importService.imports[0].name === '9105')
 	check('missing name column is no longer a silent 0-order load', !!mixedToast && mixedToast.includes('orders-noname.csv — missing column "Name"'), JSON.stringify(mixedToast))
@@ -548,7 +628,7 @@ fs.rmSync(testRoot, { recursive: true, force: true })
 
 console.log('')
 if (failures.length > 0) {
-	console.error(`${failures.length} check(s) FAILED.`)
+	console.error(`${failures.length} check${failures.length === 1 ? '' : 's'} FAILED.`)
 	app.exit(1)
 } else {
 	console.log('All checks passed.')

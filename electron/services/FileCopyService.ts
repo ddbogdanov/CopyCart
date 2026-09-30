@@ -1,9 +1,24 @@
 import fs from "fs"
 import path from "path"
+import { shell } from 'electron'
 import log from 'electron-log'
+import { plural } from '../../shared/plural.ts'
+import { writeIssuesReport, type CopyIssue } from './report.ts'
 import type { RendererEvents } from './RendererEvents.ts'
 import type { SettingsService } from './SettingsService.ts'
 import type { ImportService } from './ImportService.ts'
+import type { Settings } from '../../shared/ipc'
+
+/** Short, user-readable reason for a failed copy (Node/Electron error codes). */
+function copyFailureReason(error: any): string {
+	const code = error?.code
+	if (code === 'EISDIR') return 'destination name is already a folder'
+	if (code === 'EACCES' || code === 'EPERM') return 'no write access to the destination'
+	if (code === 'ENOENT') return 'destination folder not found'
+	if (code === 'EBUSY') return 'file is locked'
+	if (code === 'ENOSPC') return 'the disk is full'
+	return 'could not be copied'
+}
 
 /**
  * Copies one file per ordered quantity into the print folder, streaming
@@ -14,11 +29,13 @@ export class FileCopyService {
 	private settingsService: SettingsService
 	private importService: ImportService
 	private events: RendererEvents
+	private autoOpenReport: boolean
 
-	constructor(settingsService: SettingsService, importService: ImportService, events: RendererEvents) {
+	constructor(settingsService: SettingsService, importService: ImportService, events: RendererEvents, options?: { autoOpenReport?: boolean }) {
 		this.settingsService = settingsService
 		this.importService = importService
 		this.events = events
+		this.autoOpenReport = options?.autoOpenReport === true
 	}
 
 	async processFiles(): Promise<boolean> {
@@ -45,9 +62,9 @@ export class FileCopyService {
 		}
 
 		if (!this.importService.imports.length) {
-			const hasSelection = this.settingsService.settings.imports.length > 0
-			this.events.send('toast', hasSelection
-				? 'No orders loaded \u2014 the selected file(s) couldn\'t be read. Re-import them, or fix the column mapping in the \u2699 "Configure Import" dialog, then try again.'
+			const selectedCount = this.settingsService.settings.imports.length
+			this.events.send('toast', selectedCount > 0
+				? `No orders loaded \u2014 ${plural(selectedCount, 'selected file')} couldn't be read. Re-import, or fix the column mapping in the \u2699 "Configure Import" dialog, then try again.`
 				: 'No orders loaded \u2014 import at least one .CSV export first.')
 			return false
 		}
@@ -70,17 +87,27 @@ export class FileCopyService {
 		let failedFiles = 0
 		let invalidQuantityLines = 0
 		const unmatchedLines: any[] = []
+		const issues: CopyIssue[] = []
 
 		for(let [index, order] of this.importService.imports.entries()) {
 			const matchedOrder = order.sku ? this.fileCache.get(order.sku) : undefined
 			if(!matchedOrder) {
 				unmatchedLines.push(order)
+				issues.push({
+					kind: 'no-print-file',
+					rowNumber: index + 1,
+					row: order,
+					detail: order.sku
+						? `Add a print file named "${order.sku}" to the Print Files folder.`
+						: 'This order line has no SKU — check the CSV export.'
+				})
 				continue
 			}
 
 			const quantity = Number(order.quantity)
 			if (!Number.isFinite(quantity) || quantity <= 0) {
 				invalidQuantityLines++
+				issues.push({ kind: 'invalid-quantity', rowNumber: index + 1, row: order, detail: `Quantity "${order.quantity ?? ''}" is missing or not a positive number.` })
 				console.error(`Skipping order ${order.name} (${order.sku}): invalid quantity "${order.quantity}"`)
 				continue
 			}
@@ -98,47 +125,77 @@ export class FileCopyService {
 			}
 
 			const results = await Promise.allSettled(copyPromises)
+			const failedDestinations: string[] = []
 			for (let i = 0; i < results.length; i++) {
 				const result = results[i]
 				if (result?.status === 'fulfilled') copiedFiles++
 				else {
 					failedFiles++
+					failedDestinations.push(`${destinations[i]} — ${copyFailureReason(result?.reason)}`)
 					console.error(`Failed to copy ${destinations[i]}:`, result?.reason)
 					log.error(`Failed to copy ${destinations[i]}:`, result?.reason)
 				}
+			}
+			if (failedDestinations.length > 0) {
+				issues.push({
+					kind: 'copy-failed',
+					rowNumber: index + 1,
+					row: order,
+					detail: `${plural(failedDestinations.length, 'copy', 'copies')} of ${results.length} failed — ${failedDestinations[0]}${failedDestinations.length > 1 ? ` (+${failedDestinations.length - 1} more)` : ''}`
+				})
 			}
 
 			this.events.send('update:loading:state', {'isLoading': true, 'progress': ((index / totalOrders)*100), 'status': `Copying... ${destinations[destinations.length - 1]}`})
 		}
 
 		const unmatchedCopies = unmatchedLines.reduce((sum, order) => sum + (Number(order.quantity) || 0), 0)
+		const skippedLines = unmatchedLines.length + invalidQuantityLines
 
-		const notices: string[] = []
 		if (unmatchedLines.length > 0) {
-			const skuCounts = new Map<string, number>()
-			for (const order of unmatchedLines) {
-				const sku = order.sku || '(missing sku)'
-				skuCounts.set(sku, (skuCounts.get(sku) ?? 0) + 1)
-			}
-			const topSkus = [...skuCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([sku, count]) => `${sku} (${count})`)
-			notices.push(`No print file found for ${unmatchedLines.length} order line(s) (${unmatchedCopies} copy/copies) — ${skuCounts.size} SKU(s): ${topSkus.join(', ')}${skuCounts.size > 5 ? ', ...' : ''}`)
-
 			console.error('Unmatched order lines (no print file) — full list:')
 			for (const order of unmatchedLines) console.error(`   ${order.name}  |  ${order.sku || '(missing sku)'}  |  qty ${order.quantity}`)
 		}
-		if (invalidQuantityLines > 0) notices.push(`${invalidQuantityLines} order line(s) skipped — missing/invalid quantity.`)
-		
-		if (failedFiles > 0) notices.push(`${failedFiles} file(s) failed to copy — details in the log (%APPDATA%\\Copy Cart\\logs\\main.log).`)
-		if (notices.length > 0) this.events.send('toast', notices.join(' '))
 
-		const skippedLines = unmatchedLines.length + invalidQuantityLines
-		let doneStatus = `Done — ${copiedFiles} file(s) copied`
+		// The CSV report carries the detail; the toast stays a summary.
+		const reportPath = issues.length > 0 ? await this.writeReport(settings, issues) : null
+
+		const notices: string[] = []
+		if (reportPath) {
+			const problemParts: string[] = []
+			if (skippedLines > 0) {
+				const breakdown: string[] = []
+				if (unmatchedLines.length > 0) breakdown.push(`${unmatchedLines.length} with no print file`)
+				if (invalidQuantityLines > 0) breakdown.push(`${invalidQuantityLines} with an invalid quantity`)
+				problemParts.push(`${plural(skippedLines, 'order line')} had no output (${breakdown.join(', ')})`)
+			}
+			if (failedFiles > 0) problemParts.push(`${plural(failedFiles, 'file')} failed to copy`)
+			notices.push(`Copy finished with problems — ${problemParts.join(' and ')}. The error report lists every affected row.`)
+		} else {
+			if (unmatchedLines.length > 0) {
+				const skuCounts = new Map<string, number>()
+				for (const order of unmatchedLines) {
+					const sku = order.sku || '(missing sku)'
+					skuCounts.set(sku, (skuCounts.get(sku) ?? 0) + 1)
+				}
+				const topSkus = [...skuCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([sku, count]) => `${sku} (${count})`)
+				notices.push(`No print file found for ${plural(unmatchedLines.length, 'order line')} (${plural(unmatchedCopies, 'copy', 'copies')}) — ${plural(skuCounts.size, 'SKU')}: ${topSkus.join(', ')}${skuCounts.size > 5 ? ', ...' : ''}`)
+			}
+			if (invalidQuantityLines > 0) notices.push(`${plural(invalidQuantityLines, 'order line')} skipped — missing/invalid quantity.`)
+		
+			if (failedFiles > 0) notices.push(`${plural(failedFiles, 'file')} failed to copy — details in the log (%APPDATA%\\Copy Cart\\logs\\main.log).`)
+		}
+		if (notices.length > 0) this.events.send('toast', reportPath ? { message: notices.join(' '), reportPath } : notices.join(' '))
+
+		let doneStatus = `Done — ${plural(copiedFiles, 'file')} copied`
 		if (skippedLines > 0 || failedFiles > 0) {
-			doneStatus += ` — ${skippedLines} order line(s) had no output${failedFiles > 0 ? `, ${failedFiles} copy failure(s)` : ''}. Check the notification and the log.`
+			const statusParts: string[] = []
+			if (skippedLines > 0) statusParts.push(`${plural(skippedLines, 'order line')} had no output`)
+			if (failedFiles > 0) statusParts.push(plural(failedFiles, 'copy failure'))
+			doneStatus += ` — ${statusParts.join(', ')}. ${reportPath ? 'See the error report for details.' : 'Check the notification and the log.'}`
 		}
 
 		this.events.send('update:loading:state', {'isLoading': false, 'progress': 100, 'status': doneStatus})
-		console.log(`Process complete — ${copiedFiles} copied, ${failedFiles} failed, ${unmatchedLines.length} unmatched, ${invalidQuantityLines} invalid quantity (of ${totalOrders} order lines)`)
+		console.log(`Process complete — ${copiedFiles} copied, ${failedFiles} failed, ${unmatchedLines.length} unmatched, ${invalidQuantityLines} invalid quantity (of ${plural(totalOrders, 'order line')})`)
 		return true
 	}
 
@@ -162,9 +219,27 @@ export class FileCopyService {
 			this.fileCache.set(baseName, filePath)
 		}
 
-		if (collisions > 0) console.warn(`${collisions} print file name collision(s) — rename the duplicates so every design can be matched.`)
+		if (collisions > 0) console.warn(`${plural(collisions, 'print file name collision')} — rename the duplicates so every design can be matched.`)
 
-		console.log(`Cached ${this.fileCache.size} file(s) from ${printFilesPath}${recursive ? ' (including subfolders)' : ''}`)
+		console.log(`Cached ${plural(this.fileCache.size, 'file')} from ${printFilesPath}${recursive ? ' (including subfolders)' : ''}`)
+	}
+
+	/** Writes the issues CSV to the configured folder and optionally opens it — never fails the run. */
+	private async writeReport(settings: Settings, issues: CopyIssue[]): Promise<string | null> {
+		const folder = settings.reportToPrintFolder !== false ? settings.printFolder : (settings.reportFolder || settings.printFolder)
+
+		try {
+			const reportPath = await writeIssuesReport(issues, folder)
+			if (this.autoOpenReport) {
+				shell.openPath(reportPath).then((openError) => { if (openError) log.warn(`Could not open the error report: ${openError}`) })
+			}
+			return reportPath
+		}
+		catch (error) {
+			console.error('Failed to write the error report:', error)
+			log.error('Failed to write the error report:', error)
+			return null
+		}
 	}
 
 	/**

@@ -47,6 +47,7 @@ const electronAPI = {
 	exit: () => invoke('exit'),
 	saveSettings: (settings) => invoke('save-settings', settings),
 	openDevTools: () => invoke('open-dev-tools'),
+	showReport: (filePath) => invoke('show-report', filePath),
 
 	onLoadingStateUpdate: (callback) => {
 		subscribe('update:loading:state', (_event, update) => {

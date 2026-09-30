@@ -2,6 +2,35 @@
     <Form @submit="onSaveSettings" :initialValues="settings" class="settings-form">
 
         <div class="settings-content">
+            <Fieldset legend="Error report" toggleable :collapsed="true">
+                <div class="error-report">
+
+                    <p class="report-hint">When copies fail, a .csv listing the affected rows is saved here and opened automatically.</p>
+
+                    <div class="report-row">
+                        <RadioButton inputId="reportToPrintFolder" name="reportLocation" :value="true" v-model="settings.reportToPrintFolder"/>
+                        <label for="reportToPrintFolder">Save to Print Folder</label>
+                    </div>
+
+                    <div class="report-row report-folder" :class="{ 'is-disabled': settings.reportToPrintFolder }">
+                        <RadioButton inputId="reportCustomFolder" name="reportLocation" :value="false" v-model="settings.reportToPrintFolder"/>
+                        <label for="reportCustomFolder">Save to a custom folder</label>
+                        <Button label="Choose folder"
+                                size="small"
+                                outlined
+                                :disabled="settings.reportToPrintFolder"
+                                @click="onPickReportFolder"
+                        />
+                    </div>
+
+                    <div class="report-location">
+                        <span>Error reports will copy to:</span>
+                        <span class="path" :class="{ 'is-unset': !reportLocation }" v-tooltip.top="reportLocationTooltip">{{ reportLocationLabel }}</span>
+                    </div>
+
+                </div>
+            </Fieldset>
+
             <Fieldset legend="Save on exit?" toggleable>
                 <div class="should-save">
 
@@ -82,7 +111,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { Form } from '@primevue/forms'
 import { useConfirm } from 'primevue/useconfirm'
 import { primaryColorPresets } from '../models/ThemePresets'
@@ -120,6 +149,26 @@ function formatLabel(key: string) {
   return key
     .replace(/([A-Z])/g, ' $1')
     .replace(/^./, str => str.toUpperCase())
+}
+
+const printFolder = computed(() => props.settings?.printFolder || '')
+/** Target folder for reports; null while none resolves (placeholder shown). */
+const reportLocation = computed(() => {
+    if (props.settings?.reportToPrintFolder) return printFolder.value || null
+    return props.settings?.reportFolder || printFolder.value || null
+})
+const reportLocationLabel = computed(() => reportLocation.value ?? 'Print Folder (not selected)')
+const reportLocationTooltip = computed(() => reportLocation.value ?? undefined)
+
+/** Draft-only pick — persisted when the form is saved. */
+async function onPickReportFolder() {
+    const picked = await ipc.openFileDialog({
+        kind: 'choose-folder',
+        title: 'Select Error Report Folder',
+        properties: ['openDirectory'],
+        filters: []
+    })
+    if (picked.length > 0) props.settings.reportFolder = picked[0]
 }
 
 function onOpenDevTools(event: any) {
@@ -197,6 +246,73 @@ function onOpenDevTools(event: any) {
 				font-size: 12px;
 			}
 		}
+
+        .error-report {
+            width: 100%;
+
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+
+            color: var(--p-surface-400);
+
+            .report-row {
+                display: flex;
+                align-items: center;
+                gap: 5px;
+
+                > label {
+                    font-size: 12px;
+                }
+            }
+
+            .report-folder {
+                > Button {
+                    margin-left: auto;
+                }
+
+                &.is-disabled > label {
+                    opacity: 0.55;
+                }
+            }
+
+            .report-location {
+                display: flex;
+                gap: 5px;
+
+                padding-top: 10px;
+
+                border-top: 1px solid var(--p-surface-800);
+
+                font-size: 11px;
+                opacity: 0.8;
+
+                > .path {
+                    flex: 1;
+                    min-width: 0;
+
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                }
+
+                /* Warning tint while no folder resolves yet. */
+                > .path.is-unset {
+                    color: var(--p-red-400);
+                }
+            }
+
+            .report-hint {
+                margin: 0;
+                padding-bottom: 10px;
+
+                border-bottom: 1px solid var(--p-surface-800);
+
+                font-size: 11px;
+                opacity: 0.8;
+            }
+        }
+
         .theme {
             width: 100%;
             height: 250px;

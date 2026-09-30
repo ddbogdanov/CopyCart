@@ -46,10 +46,3 @@ html, body {
   /* Desktop app shell — the window itself must never scroll. */
   overflow: hidden;
 }
-
-/* Widen PrimeVue's 12.5rem tooltip cap so short texts stay on one line; long
-   file paths still wrap. Unlayered rules beat the layered theme defaults. */
-.p-tooltip,
-.p-tooltip .p-tooltip-text {
-  max-width: 26rem;
-}

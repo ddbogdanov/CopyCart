@@ -31,7 +31,9 @@ const DEFAULT_SETTINGS: PersistedSettings = {
 	printFolder: '',
 	recursivePrintFiles: false,
 	themeColor: '#10b981',
-	csvColumns: DEFAULT_CSV_COLUMNS
+	csvColumns: DEFAULT_CSV_COLUMNS,
+	reportFolder: '',
+	reportToPrintFolder: true
 }
 
 /** Legacy stores hold a single string path — normalize to the list form. */
@@ -138,6 +140,8 @@ export class SettingsService {
 
 		const settingsToSave = { ...(this.currentSettings ?? {}), ...(s ?? {}) }
 		settingsToSave.csvColumns = normalizeCsvColumns(settingsToSave.csvColumns)
+		settingsToSave.reportFolder = sanitizeString(settingsToSave.reportFolder, DEFAULT_SETTINGS.reportFolder)
+		settingsToSave.reportToPrintFolder = sanitizeBoolean(settingsToSave.reportToPrintFolder, DEFAULT_SETTINGS.reportToPrintFolder)
 
 		try {
 			const store = this.store
@@ -164,6 +168,16 @@ export class SettingsService {
 	}
 	setPrintFolder(printFolder: string) {
 		this.currentSettings.printFolder = printFolder
+		this.events.send('settings:update', this.currentSettings)
+		this.save()
+	}
+	setReportFolder(reportFolder: string) {
+		this.currentSettings.reportFolder = reportFolder
+		this.events.send('settings:update', this.currentSettings)
+		this.save()
+	}
+	setReportToPrintFolder(reportToPrintFolder: boolean) {
+		this.currentSettings.reportToPrintFolder = reportToPrintFolder
 		this.events.send('settings:update', this.currentSettings)
 		this.save()
 	}
@@ -271,7 +285,9 @@ export class SettingsService {
 			printFolder: sanitizeString(store.get('printFolder'), DEFAULT_SETTINGS.printFolder),
 			recursivePrintFiles: sanitizeBoolean(store.get('recursivePrintFiles'), DEFAULT_SETTINGS.recursivePrintFiles),
 			themeColor: sanitizeThemeColor(store.get('themeColor')),
-			csvColumns: normalizeCsvColumns(store.get('csvColumns'))
+			csvColumns: normalizeCsvColumns(store.get('csvColumns')),
+			reportFolder: sanitizeString(store.get('reportFolder'), DEFAULT_SETTINGS.reportFolder),
+			reportToPrintFolder: sanitizeBoolean(store.get('reportToPrintFolder'), DEFAULT_SETTINGS.reportToPrintFolder)
 		}
 	}
 }

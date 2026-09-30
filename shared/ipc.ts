@@ -39,10 +39,15 @@ export type Settings = {
 	themeColor: string
 	/** CSV header names the importer reads each known field from. */
 	csvColumns: CsvColumns
+	/** Error-report folder — used unless reports go to the Print Folder. */
+	reportFolder: string
+	/** When true (default), error reports are saved to the Print Folder. */
+	reportToPrintFolder: boolean
 }
 
 /** What the picked file is used for — decides how the main process routes it. */
-export type DialogKind = 'import-orders' | 'print-files' | 'print-folder'
+export type DialogKind = 'import-orders' | 'print-files' | 'print-folder' | 'choose-folder'
+// 'choose-folder' = plain picker, no routing side effects (Settings drawer).
 
 /** Mirrors Electron's `dialog.showOpenDialog` property flags. */
 export type DialogProperty =
@@ -83,6 +88,7 @@ export type IpcRequests = {
 	'exit': { args: []; result: void }
 	'save-settings': { args: [settings: Settings]; result: boolean }
 	'open-dev-tools': { args: []; result: void }
+	'show-report': { args: [filePath: string]; result: void }
 	'update-window:cancel': { args: []; result: void }
 	'update-window:close': { args: []; result: void }
 }
@@ -106,11 +112,14 @@ export type ImportStatus = {
 	orderCount?: number
 }
 
+/** Toast text, or an error-report toast whose `reportPath` renders a reveal link. */
+export type ToastPayload = { message: string; reportPath?: string }
+
 /** Push channels (`webContents.send` -> preload subscription). */
 export type IpcEvents = {
 	'update:loading:state': { isLoading: boolean; progress: number; status: string }
 	'settings:update': Settings
-	'toast': string
+	'toast': string | ToastPayload
 	'import:status': ImportStatus
 	'update:status': UpdateStatus
 }
@@ -136,10 +145,12 @@ export type ElectronApi = {
 	exit: () => Promise<void>
 	saveSettings: (settings: Settings) => Promise<boolean>
 	openDevTools: () => Promise<void>
+	/** Reveals a file in Explorer (error-report toast link). */
+	showReport: (filePath: string) => Promise<void>
 
 	onLoadingStateUpdate: (callback: (isLoading: boolean, progress: number, status: string) => void) => void
 	onSettingsUpdate: (callback: (settings: Settings) => void) => void
-	onToast: (callback: (message: string) => void) => void
+	onToast: (callback: (payload: string | ToastPayload) => void) => void
 	onImportStatus: (callback: (status: ImportStatus) => void) => void
 }
 

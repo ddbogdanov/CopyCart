@@ -20,6 +20,7 @@ import ToastService from 'primevue/toastservice'
 import ButtonGroup from 'primevue/buttongroup'
 import Drawer from 'primevue/drawer'
 import Checkbox from 'primevue/checkbox'
+import RadioButton from 'primevue/radiobutton'
 import Fieldset from 'primevue/fieldset'
 import ColorPicker from 'primevue/colorpicker'
 import DataTable from 'primevue/datatable'
@@ -30,6 +31,14 @@ import { definePreset } from '@primeuix/themes'
 
 // Default preset — the primary palette is replaced at runtime from saved settings (updatePrimaryPalette)
 const stylePreset = definePreset(Aura, {
+    components: {
+        // Let tooltips use the full width instead of PrimeVue's 12.5rem cap.
+        tooltip: {
+            root: {
+                maxWidth: 'none'
+            }
+        }
+    },
     semantic: {
         primary: {
             50: '{emerald.50}',
@@ -85,6 +94,7 @@ app.component('ConfirmPopup', ConfirmPopup)
 app.component('ButtonGroup', ButtonGroup)
 app.component('Drawer', Drawer)
 app.component('Checkbox', Checkbox)
+app.component('RadioButton', RadioButton)
 app.component('Fieldset', Fieldset)
 app.component('ColorPicker', ColorPicker)
 app.component('DataTable', DataTable)
