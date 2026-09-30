@@ -171,16 +171,6 @@ export class SettingsService {
 		this.events.send('settings:update', this.currentSettings)
 		this.save()
 	}
-	setReportFolder(reportFolder: string) {
-		this.currentSettings.reportFolder = reportFolder
-		this.events.send('settings:update', this.currentSettings)
-		this.save()
-	}
-	setReportToPrintFolder(reportToPrintFolder: boolean) {
-		this.currentSettings.reportToPrintFolder = reportToPrintFolder
-		this.events.send('settings:update', this.currentSettings)
-		this.save()
-	}
 
 	/**
 	 * Persists the import list without broadcasting (ImportService owns the

@@ -34,11 +34,10 @@ function createServices() {
 	const settingsService = new SettingsService(events)
 	const importService = new ImportService(settingsService, events)
 
-	// Keep reports out of the scanned output folders; load() first so these
-	// saves never clobber persisted state (relaunch-simulation checks).
+	// Keep reports out of the scanned output folders; load() first so this
+	// save never clobbers persisted state (relaunch-simulation checks).
 	settingsService.load()
-	settingsService.setReportFolder(reportDir)
-	settingsService.setReportToPrintFolder(false)
+	settingsService.save({ reportFolder: reportDir, reportToPrintFolder: false })
 
 	return { settingsService, importService, events, sent }
 }

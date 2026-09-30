@@ -192,11 +192,8 @@ console.log('\n[6] Settings write through to disk immediately')
 	immediate.settingsService.setPrintFolder('C:\\OutNow')
 	check('picking print folder persists without a quit save', readJson(storePath).printFolder === 'C:\\OutNow')
 
-	immediate.settingsService.setReportFolder('C:\\Reports')
-	check('picking the report folder persists immediately', readJson(storePath).reportFolder === 'C:\\Reports')
-
-	immediate.settingsService.setReportToPrintFolder(false)
-	check('toggling the report location persists immediately', readJson(storePath).reportToPrintFolder === false)
+	immediate.settingsService.save({ reportFolder: 'C:\\Reports', reportToPrintFolder: false })
+	check('saving the report settings persists without a quit save', readJson(storePath).reportFolder === 'C:\\Reports' && readJson(storePath).reportToPrintFolder === false)
 
 	immediate.settingsService.setImports(['C:\\a.csv', 'C:\\b.csv'])
 	check('import selection persists without a quit save', JSON.stringify(readJson(storePath).imports) === JSON.stringify(['C:\\a.csv', 'C:\\b.csv']))
